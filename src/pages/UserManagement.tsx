@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useAuth, AppRole } from '@/hooks/useAuth';
 import { useTruckersMP } from '@/hooks/useTruckersMP';
 import { supabase } from '@/integrations/supabase/client';
-import { AppLayout } from '@/components/layout/AppLayout';
 import { GlassCard } from '@/components/layout/GlassCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -294,7 +293,7 @@ export default function UserManagement() {
   const pendingCount = users.filter(u => u.approval_status === 'pending').length;
 
   return (
-    <AppLayout>
+    <>
       <div className="space-y-8">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -629,6 +628,6 @@ export default function UserManagement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </AppLayout>
+    </>
   );
 }

@@ -5,12 +5,12 @@ import { useAuth } from '@/hooks/useAuth';
 import { useTruckersMP } from '@/hooks/useTruckersMP';
 import { useAutoUpdater } from '@/hooks/useAutoUpdater';
 import { Button } from '@/components/ui/button';
-import { 
-  LayoutDashboard, 
-  Truck, 
-  Users, 
-  FileText, 
-  Settings, 
+import {
+  LayoutDashboard,
+  Truck,
+  Users,
+  FileText,
+  Settings,
   LogOut,
   PlusCircle,
   BarChart3,
@@ -113,8 +113,8 @@ export function AppLayout({ children }: AppLayoutProps) {
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 sm:w-12 sm:h-12 shrink-0 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-base sm:text-lg neon-pulse overflow-hidden">
                 {avatarUrl ? (
-                  <img 
-                    src={avatarUrl} 
+                  <img
+                    src={avatarUrl}
                     alt={profile?.username}
                     className="w-full h-full object-cover"
                     onError={() => setAvatarUrl(null)}
@@ -148,8 +148,8 @@ export function AppLayout({ children }: AppLayoutProps) {
                 to={item.path}
                 className={cn(
                   "flex items-center gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl transition-all duration-200",
-                  isActive 
-                    ? "bg-primary/15 text-primary neon-glow" 
+                  isActive
+                    ? "bg-primary/15 text-primary neon-glow"
                     : "text-muted-foreground hover:bg-secondary hover:text-foreground"
                 )}
               >
@@ -176,19 +176,27 @@ export function AppLayout({ children }: AppLayoutProps) {
 
       {/* Overlay for mobile */}
       {sidebarOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       {/* Main content */}
-      <main className="flex-1 lg:ml-72 flex flex-col h-screen max-h-screen overflow-hidden">
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 pt-16 lg:pt-8 bg-background">
-          <div className="max-w-7xl mx-auto pb-safe w-full">
+      <main className="flex-1 lg:ml-72 flex flex-col h-[calc(100vh-2.5rem)]">
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 lg:p-8 pt-16 lg:pt-8 bg-background">
+          <div className="max-w-7xl mx-auto pb-4 w-full">
             {children}
           </div>
         </div>
+
+        {/* Footer - pinned at bottom */}
+        <footer className="shrink-0 px-4 sm:px-6 lg:px-8 py-2 border-t border-border/30 bg-background/95 backdrop-blur-sm">
+          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-1 text-[11px] text-muted-foreground/50">
+            <span>© {new Date().getFullYear()} Aura VTC · All rights reserved</span>
+            <span>v1.0.0 · Designed & Developed by <a href="">Chetan</a></span>
+          </div>
+        </footer>
       </main>
     </div>
   );

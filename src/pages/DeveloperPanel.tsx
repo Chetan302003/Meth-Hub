@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useTruckersMP, TMPEvent, TMPServer } from '@/hooks/useTruckersMP';
 import { supabase } from '@/integrations/supabase/client';
-import { AppLayout } from '@/components/layout/AppLayout';
 import { GlassCard, StatCard } from '@/components/layout/GlassCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -246,7 +245,7 @@ export default function DeveloperPanel() {
 
   if (!isDeveloper) {
     return (
-      <AppLayout>
+      <>
         <div className="flex items-center justify-center min-h-[60vh]">
           <GlassCard className="max-w-md text-center">
             <AlertTriangle size={48} className="mx-auto text-warning mb-4" />
@@ -256,7 +255,7 @@ export default function DeveloperPanel() {
             </p>
           </GlassCard>
         </div>
-      </AppLayout>
+      </>
     );
   }
 
@@ -264,7 +263,7 @@ export default function DeveloperPanel() {
   const totalPlayers = tmpServers.reduce((sum, s) => sum + s.players, 0);
 
   return (
-    <AppLayout>
+    <>
       <div className="space-y-8">
         {/* Header */}
         <div>
@@ -569,6 +568,6 @@ export default function DeveloperPanel() {
           </div>
         </GlassCard>
       </div>
-    </AppLayout>
+    </>
   );
 }

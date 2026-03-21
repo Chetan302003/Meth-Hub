@@ -1,669 +1,553 @@
-import { useCallback, useRef } from 'react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { isTauri } from '@/lib/tauri';
+import { useAuth } from './useAuth';
+import { sendDiscordWebhook } from '@/lib/discord';
 
-/**
-
- * Telemetry data structure from ETS2/ATS telemetry server
-
- * This hook is designed to be Tauri-ready - the WebSocket connection
-
- * can be replaced with Tauri commands when converting to desktop app.
-
- *
-
- * For desktop app conversion:
-
- * 1. Use Tauri's `invoke` to call Rust functions that read telemetry
-
- * 2. Or use Tauri's HTTP client to connect to local telemetry server
-
- * 3. The data structure remains the same
-
- */
-
-
-
-export interface TelemetryTruck {
-  id: string;
-  make: string;
-  model: string;
-  speed: number;
-  speedLimit: number;
-  cruiseControl: number;
-  cruiseControlOn: boolean;
-  fuel: number;
-  fuelCapacity: number;
-  fuelAvgConsumption: number;
-  odometer: number;
-  engineRpm: number;
-  engineRpmMax: number;
-  gear: number;
-  gearForward: number
-  gearReverse: number;
-  engineOn: boolean;
-  electricOn: boolean;
-  wipersOn: boolean;
-  lightsBeam: {
-    low: boolean;
-    high: boolean;
-  };
-
-  blinker: {
-
-    left: boolean;
-
-    right: boolean;
-
-  };
-
-  damage: {
-
-    engine: number;
-
-    transmission: number;
-    cabin: number;
-    chassis: number;
-    wheels: number;
-    total: number;
-  };
-  // Finance fields
-  fines?: number;
-  tolls?: number;
-  repairs?: number;
-}
-
-export interface TelemetryTrailer {
-  attached: boolean;
-  id: string;
-  name: string;
-  mass: number;
-  damage: number;
-}
-
-export interface TelemetryJob {
-  income: number;
-  deadlineTime: string;
-  remainingTime: number;
-  sourceCity: string;
-  sourceCompany: string;
-  destinationCity: string;
-  destinationCompany: string;
-  cargo: string | {
-    name: string;
-    mass: number;
-    cargo_damage: number;
-    id?: string;
-  };
-  cargoMass: number;
-  cargoDamage: number;
-  isSpecial: boolean;
-  market: string;
-}
-
-export interface TelemetryNavigation {
-  estimatedTime: number;
-  estimatedDistance: number;
-  speedLimit: number;
-}
-
-export interface TelemetryGame {
-  connected: boolean;
-  paused: boolean;
-  time: string;
-  timeScale: number;
-  nextRestStop: number;
-  version: string;
-  game: 'ets2' | 'ats' | 'unknown';
-  telemetryVersion: string;
+export interface AuraPlacement {
+  x: number;
+  y: number;
+  z: number;
+  heading: number;
+  pitch: number;
+  roll: number;
 }
 
 export interface TelemetryData {
-  game: TelemetryGame;
-  truck: TelemetryTruck;
-  trailer: TelemetryTrailer;
-  job: TelemetryJob | null;
-  navigation: TelemetryNavigation;
+  game: {
+    connected: boolean;
+    paused: boolean;
+    time: number;
+    scale: number;
+    nextRestStop: number;
+    pluginVersion: string;
+    mpTimeOffset: number; // Added
+  };
+  truck: {
+    brand: string;
+    name: string;
+    licensePlate: string;
+    pos: AuraPlacement;
+    dash: {
+      speed: number;
+      rpm: number;
+      gear: number;
+      displayedGear: number;
+      odometer: number;
+      fuel: number;
+      fuelCapacity: number;
+      fuelRange: number;
+      fuelWarning: boolean;
+      adblue: number;
+      adblueWarning: boolean;
+      waterTemp: number;
+      oilTemp: number;
+      batteryVoltage: number;
+      airPressure: number;
+      avgFuelConsumption: number; // Added
+    };
+    lights: {
+      lowBeam: boolean;
+      highBeam: boolean;
+      parking: boolean;
+      beacon: boolean;
+      hazard: boolean;
+      lblinker: boolean;
+      rblinker: boolean;
+      auxFront: number;
+      auxRoof: number;
+    };
+    inputs: {
+      steering: number;
+      throttle: number;
+      brake: number;
+      clutch: number;
+      effectiveSteering: number;
+      cruiseControl: boolean;
+    };
+    damage: {
+      engine: number;
+      transmission: number;
+      cabin: number;
+      chassis: number;
+      wheels: number;
+      total: number;
+    };
+    navigation: {
+      distance: number;
+      time: number;
+      speedLimit: number;
+    };
+    geometry: {
+      cabinPos: AuraPlacement;
+      headPos: AuraPlacement;
+      hookPos: AuraPlacement;
+      wheelCount: number;
+    };
+  };
+  trailer: Array<{
+    attached: boolean;
+    id: string;
+    brand: string;
+    bodyType: string;
+    chainType: string;
+    licensePlate: string;
+    damage: number;
+  }>;
+  job: {
+    active: boolean;
+    cargo: string;
+    cargoId: string;
+    source: string;
+    destination: string;
+    distanceKm: number; // Added
+    income: number;
+    plannedDistance: number;
+    progress: number;
+    cargoMass: number;
+    cargoEvent: number;
+    cargoAccessoryId: string;
+    market: string;
+    isSpecial: boolean;
+    revenue: number;
+    xp: number;
+    autoPark: boolean;
+    autoLoad: boolean;
+  } | null;
+  events: {
+    delivered: number;
+    cancelled: number;
+    fined: number;
+    fineAmount: number;
+    toll: number;
+    tollAmount: number;
+    ferryAmount: number;
+    trainAmount: number;
+    fuelAmount: number; // Added
+    repairAmount: number; // Added
+  };
+  timestamp: number;
 }
-
-export interface TelemetryConfig {
-  /** WebSocket URL for telemetry server (default: ws://localhost:25555) */
-  wsUrl?: string;
-  /** HTTP URL for telemetry server (default: http://localhost:25555) */
-  httpUrl?: string;
-  /** Polling interval in ms when using HTTP (default: 100) */
-  pollingInterval?: number;
-  /** Connection mode: 'websocket' | 'http' | 'auto' (default: 'auto') */
-  mode?: 'websocket' | 'http' | 'auto';
-  /** Enable auto-reconnect (default: true) */
-  autoReconnect?: boolean;
-  /** Reconnect delay in ms (default: 3000) */
-  reconnectDelay?: number;
-}
-
-const defaultConfig: Required<TelemetryConfig> = {
-  wsUrl: 'ws://localhost:25555',
-  httpUrl: 'http://localhost:25555/api/ets2/telemetry',
-  pollingInterval: 100,
-  mode: 'auto',
-  autoReconnect: true,
-  reconnectDelay: 3000,
-};
 
 const defaultTelemetry: TelemetryData = {
-  game: {
-    connected: false,
-    paused: false,
-    time: '',
-    timeScale: 1,
-    nextRestStop: 0,
-    version: '',
-    game: 'unknown',
-    telemetryVersion: '',
-  },
+  game: { connected: false, paused: false, time: 0, scale: 1, nextRestStop: 0, pluginVersion: '0.0', mpTimeOffset: 0 },
   truck: {
-    id: '',
-    make: '',
-    model: '',
-    speed: 0,
-    speedLimit: 0,
-    cruiseControl: 0,
-    cruiseControlOn: false,
-    fuel: 0,
-    fuelCapacity: 0,
-    fuelAvgConsumption: 0,
-    odometer: 0,
-    engineRpm: 0,
-    engineRpmMax: 0,
-    gear: 0,
-    gearForward: 0,
-    gearReverse: 0,
-    engineOn: false,
-    electricOn: false,
-    wipersOn: false,
-    lightsBeam: { low: false, high: false },
-    blinker: { left: false, right: false },
+    brand: '', name: '', licensePlate: '',
+    pos: { x: 0, y: 0, z: 0, heading: 0, pitch: 0, roll: 0 },
+    dash: { speed: 0, rpm: 0, gear: 0, displayedGear: 0, odometer: 0, fuel: 0, fuelCapacity: 0, fuelRange: 0, fuelWarning: false, adblue: 0, adblueWarning: false, waterTemp: 0, oilTemp: 0, batteryVoltage: 0, airPressure: 0, avgFuelConsumption: 0 },
+    lights: { lowBeam: false, highBeam: false, parking: false, beacon: false, hazard: false, lblinker: false, rblinker: false, auxFront: 0, auxRoof: 0 },
+    inputs: { steering: 0, throttle: 0, brake: 0, clutch: 0, effectiveSteering: 0, cruiseControl: false },
     damage: { engine: 0, transmission: 0, cabin: 0, chassis: 0, wheels: 0, total: 0 },
+    navigation: { distance: 0, time: 0, speedLimit: 0 },
+    geometry: {
+      cabinPos: { x: 0, y: 0, z: 0, heading: 0, pitch: 0, roll: 0 },
+      headPos: { x: 0, y: 0, z: 0, heading: 0, pitch: 0, roll: 0 },
+      hookPos: { x: 0, y: 0, z: 0, heading: 0, pitch: 0, roll: 0 },
+      wheelCount: 0
+    },
   },
-  trailer: {
-    attached: false,
-    id: '',
-    name: '',
-    mass: 0,
-    damage: 0,
-  },
+  trailer: [],
   job: null,
-  navigation: {
-    estimatedTime: 0,
-    estimatedDistance: 0,
-    speedLimit: 0,
-  },
+  events: { delivered: 0, cancelled: 0, fined: 0, fineAmount: 0, toll: 0, tollAmount: 0, ferryAmount: 0, trainAmount: 0, fuelAmount: 0, repairAmount: 0 },
+  timestamp: 0,
 };
 
-/**
- * Hook for reading ETS2/ATS telemetry data
- *
- * TAURI CONVERSION NOTES:
- * -----------------------
- * When converting to Tauri desktop app:
- *
- * 1. Replace WebSocket/HTTP with Tauri invoke:
- *    ```rust
- *    #[tauri::command]
- *    fn get_telemetry() -> Result<TelemetryData, String> {
- *      // Read from telemetry SDK or shared memory
- *    }
- *    ```
- *
- * 2. Use Tauri events for real-time updates:
- *    ```typescript
- *    import { listen } from '@tauri-apps/api/event';
- *    listen('telemetry-update', (event) => {
- *      setData(event.payload as TelemetryData);
- *    });
- *    ```
- *
- * 3. The hook interface stays the same - just swap the data source
- */
-// ... Keep your TelemetryTruck, TelemetryTrailer, TelemetryJob, etc. interfaces here ...
-
-export function useTelemetry(config: TelemetryConfig = {}) {
+export function useTelemetry() {
   const [data, setData] = useState<TelemetryData>(defaultTelemetry);
   const [connected, setConnected] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+  const [raw, setRaw] = useState<any>(null);
 
-  /**
-   * TAURI COMMANDS
-   */
-  const connect = useCallback(async () => {
-    if (!isTauri()) return;
+  const parseTelemetryResponse = useCallback((rawObj: any): TelemetryData => {
     try {
-      await invoke('get_telemetry_data');
-      setConnected(true);
-      setError(null);
-    } catch (err) {
-      setError("Connection Failed");
-    }
-  }, []);
-
-  const disconnect = useCallback(() => setConnected(false), []);
-
-  /**
-   * MASTER PARSER: Maps Rust v1.2.0 JSON to Aura Hub Interfaces
-   */
-  const parseTelemetryResponse = useCallback((raw: any): TelemetryData => {
-    try {
-      // 1. TRUCK MAPPING (Using .current.dashboard and .constants)
-      const truck: TelemetryTruck = {
-        id: String(raw.truck?.constants?.id || ''),
-        make: String(raw.truck?.constants?.brand || 'Truck'),
-        model: String(raw.truck?.constants?.name || ''),
-        speed: Math.abs(Number(raw.truck?.current?.dashboard?.speed?.value || 0)) * 3.6,
-        speedLimit: Number(raw.navigation?.speed_limit?.value || 0) * 3.6,
-        cruiseControl: Number(raw.truck?.current?.dashboard?.cruise_control_speed?.value || 0) * 3.6,
-        cruiseControlOn: Boolean(raw.truck?.current?.dashboard?.cruise_control),
-        fuel: Number(raw.truck?.current?.dashboard?.fuel?.amount || 0),
-        fuelCapacity: Number(raw.truck?.constants?.capacity?.fuel || 1),
-        fuelAvgConsumption: Number(raw.truck?.current?.dashboard?.fuel?.average_consumption || 0),
-        odometer: Number(raw.truck?.current?.dashboard?.odometer || 0),
-        engineRpm: Number(raw.truck?.current?.dashboard?.rpm || 0),
-        engineRpmMax: Number(raw.truck?.constants?.motor?.engine_rpm_max || 2500),
-        gear: Number(raw.truck?.current?.dashboard?.gear_dashboards || 0),
-        gearForward: Number(raw.truck?.constants?.motor?.forward_gear_count || 12),
-        gearReverse: Number(raw.truck?.constants?.motor?.reverse_gear_count || 2),
-        engineOn: Boolean(raw.truck?.current?.engine_enabled),
-        electricOn: Boolean(raw.truck?.current?.electric_enabled),
-        wipersOn: Boolean(raw.truck?.current?.dashboard?.wipers),
-        lightsBeam: {
-          low: Boolean(raw.truck?.current?.lights?.beam_low),
-          high: Boolean(raw.truck?.current?.lights?.beam_high),
-        },
-        blinker: {
-          left: Boolean(raw.truck?.current?.lights?.blinker_left_on),
-          right: Boolean(raw.truck?.current?.lights?.blinker_right_on),
-        },
-        damage: {
-          engine: Number(raw.truck?.current?.damage?.engine || 0),
-          transmission: Number(raw.truck?.current?.damage?.transmission || 0),
-          cabin: Number(raw.truck?.current?.damage?.cabin || 0),
-          chassis: Number(raw.truck?.current?.damage?.chassis || 0),
-          wheels: Number(raw.truck?.current?.damage?.wheels_avg || 0),
-          total: Number(raw.truck?.current?.damage?.chassis || 0),
-        },
-        // ADDED: Capture finance/expense data if available from the SDK version
-        fines: Number(raw.finances?.fines || 0),
-        tolls: Number(raw.finances?.tolls || 0),
-        repairs: Number(raw.finances?.repairs || 0),
-      };
-
-      // 2. TRAILER MAPPING (Using plural trailers[0])
-      const mainTrailer = raw.trailers?.[0];
-      const trailer: TelemetryTrailer = {
-        attached: Boolean(mainTrailer?.attached),
-        id: String(mainTrailer?.id || ''),
-        name: String(mainTrailer?.brand || 'Trailer'),
-        mass: Number(mainTrailer?.cargo?.mass || 0),
-        damage: Number(mainTrailer?.damage?.chassis || 0),
-      };
-
-      // 3. JOB MAPPING (Using cargo_loaded and city_source)
-      // FIX here: The SDK often just sets job to a structure even if there is no job.
-      // E.g., raw.job?.cargo_loaded is a boolean that MUST be strictly true
-      const hasJob = raw.job && raw.job.cargo_loaded === true;
-      const job: TelemetryJob | null = hasJob ? {
-        income: Number(raw.job.income || 0),
-        deadlineTime: String(raw.job.delivery_time || ''),
-        remainingTime: Number(raw.job.remaining_delivery_time || 0),
-        sourceCity: String(raw.job.city_source || ''),
-        sourceCompany: String(raw.job.company_source || ''),
-        destinationCity: String(raw.job.city_destination || ''),
-        destinationCompany: String(raw.job.company_destination || ''),
-        cargo: String(raw.job.cargo?.name || 'Cargo'),
-        cargoMass: Number(raw.job.cargo?.mass || 0),
-        // SDK 1.2+ uses cargo.damage sometimes instead of job.cargo_damage, check both
-        cargoDamage: Number(raw.job.cargo?.damage || raw.job.cargo_damage || mainTrailer?.cargo?.damage || mainTrailer?.damage?.cargo || 0), 
-        isSpecial: Boolean(raw.job.special_job),
-        market: String(raw.job.market || ''),
-      } : null;
-
       return {
         game: {
-          connected: Boolean(raw.sdk_active),
-          paused: Boolean(raw.paused),
-          time: String(raw.common?.game_time || ''),
-          timeScale: Number(raw.common?.scale || 1),
-          nextRestStop: Number(raw.common?.next_rest_stop || 0),
-          version: `${raw.game_version?.major || 1}.${raw.game_version?.minor || 0}`,
-          game: (raw.game || 'unknown') as 'ets2' | 'ats' | 'unknown',
-          telemetryVersion: `${raw.telemetry_version?.major || 1}`,
+          connected: rawObj.game.connected,
+          paused: rawObj.game.paused,
+          time: rawObj.game.time,
+          scale: rawObj.game.scale || 1.0,
+          nextRestStop: rawObj.game.nextRestStop || 0,
+          pluginVersion: rawObj.game.pluginVersion || 'none',
+          mpTimeOffset: rawObj.game.mpTimeOffset || 0,
         },
-        truck,
-        trailer,
-        job,
-        navigation: {
-          estimatedTime: Number(raw.navigation?.navigation_time || 0),
-          estimatedDistance: Number(raw.navigation?.navigation_distance || 0),
-          speedLimit: Number(raw.navigation?.speed_limit?.value || 0) * 3.6,
+        truck: {
+          brand: rawObj.truck.brand,
+          name: rawObj.truck.name,
+          licensePlate: rawObj.truck.licensePlate || '',
+          pos: rawObj.truck.pos || { x: 0, y: 0, z: 0, heading: 0, pitch: 0, roll: 0 },
+          dash: {
+            speed: rawObj.truck.speed,
+            rpm: rawObj.truck.rpm,
+            gear: rawObj.truck.gear,
+            displayedGear: rawObj.truck.gear,
+            odometer: rawObj.truck.odometer,
+            fuel: rawObj.truck.fuel,
+            fuelCapacity: rawObj.truck.fuelCapacity || 0,
+            fuelRange: rawObj.truck.dash.fuelRange || 0,
+            fuelWarning: rawObj.truck.fuel < (rawObj.truck.fuelCapacity * 0.15),
+            adblue: 0,
+            adblueWarning: false,
+            waterTemp: rawObj.truck.dash.waterTemp || 0,
+            oilTemp: rawObj.truck.dash.oilTemp || 0,
+            batteryVoltage: rawObj.truck.dash.batteryVoltage || 0,
+            airPressure: rawObj.truck.dash.airPressure || 0,
+            avgFuelConsumption: rawObj.truck.dash.avgFuelConsumption || 0,
+          },
+          lights: {
+            lowBeam: rawObj.truck.lights.lowBeam,
+            highBeam: rawObj.truck.lights.highBeam,
+            parking: false,
+            beacon: rawObj.truck.lights.beacon || false,
+            hazard: rawObj.truck.lights.hazard || false,
+            lblinker: rawObj.truck.lights.lblinker,
+            rblinker: rawObj.truck.lights.rblinker,
+            auxFront: rawObj.truck.lights.auxFront || 0,
+            auxRoof: rawObj.truck.lights.auxRoof || 0,
+          },
+          inputs: {
+            steering: rawObj.truck.inputs?.steering || 0,
+            throttle: rawObj.truck.inputs?.throttle || 0,
+            brake: rawObj.truck.inputs?.brake || 0,
+            clutch: rawObj.truck.inputs?.clutch || 0,
+            effectiveSteering: rawObj.truck.inputs?.steering || 0,
+            cruiseControl: rawObj.truck.cruiseControl,
+          },
+          damage: {
+            engine: rawObj.truck.wear?.engine || 0,
+            transmission: rawObj.truck.wear?.transmission || 0,
+            cabin: rawObj.truck.wear?.cabin || 0,
+            chassis: rawObj.truck.wear?.chassis || 0,
+            wheels: rawObj.truck.wear?.wheels || 0,
+            total: rawObj.truck.wear?.total || 0,
+          },
+          navigation: {
+            distance: rawObj.truck.navigation?.distance || 0,
+            time: rawObj.truck.navigation?.time || 0,
+            speedLimit: rawObj.truck.navigation?.speedLimit || 0,
+          },
+          geometry: {
+            cabinPos: rawObj.truck.geometry?.cabinPos || { x: 0, y: 0, z: 0, heading: 0, pitch: 0, roll: 0 },
+            headPos: rawObj.truck.geometry?.head_pos || { x: 0, y: 0, z: 0, heading: 0, pitch: 0, roll: 0 },
+            hookPos: rawObj.truck.geometry?.hook_pos || { x: 0, y: 0, z: 0, heading: 0, pitch: 0, roll: 0 },
+            wheelCount: rawObj.truck.geometry?.wheel_count || 0,
+          },
         },
+        trailer: (rawObj.trailer || []).map((t: any) => ({
+          attached: t.attached,
+          id: t.id || 'none',
+          brand: t.brand || 'none',
+          bodyType: t.bodyType || 'none',
+          chainType: t.chainType || 'none',
+          licensePlate: t.licensePlate || 'none',
+          damage: t.damage || 0,
+        })),
+        job: rawObj.job ? {
+          active: rawObj.job.active,
+          cargo: rawObj.job.cargo,
+          cargoId: rawObj.job.cargoId,
+          source: rawObj.job.source,
+          destination: rawObj.job.destination,
+          distanceKm: rawObj.job.distance_km || 0,
+          income: rawObj.job.income,
+          plannedDistance: rawObj.job.plannedDistance || 0,
+          progress: rawObj.job.cargoDamageLive || 0,
+          cargoMass: rawObj.job.cargoMass || 0,
+          cargoEvent: rawObj.job.cargoEvent || 0,
+          cargoAccessoryId: rawObj.job.cargoAccessoryId || "",
+          market: rawObj.job.market || "",
+          isSpecial: rawObj.job.isSpecial || false,
+          revenue: rawObj.job.revenue || 0,
+          xp: rawObj.job.xp || 0,
+          autoPark: rawObj.job.autoPark || false,
+          autoLoad: rawObj.job.autoLoad || false,
+        } : null,
+        events: {
+          delivered: rawObj.events?.jobFinishedCount || 0,
+          cancelled: rawObj.events?.jobCancelledCount || 0,
+          fined: rawObj.events?.fineCount || 0,
+          fineAmount: rawObj.events?.fineAmount || 0,
+          toll: rawObj.events?.tollCount || 0,
+          tollAmount: rawObj.events?.tollAmount || 0,
+          ferryAmount: rawObj.events?.ferryAmount || 0,
+          trainAmount: rawObj.events?.trainAmount || 0,
+          fuelAmount: rawObj.events?.fuelAmount || 0,
+          repairAmount: rawObj.events?.repairAmount || 0,
+        },
+        timestamp: rawObj.timestamp,
       };
     } catch (err) {
-      console.error('Aura Parser Error:', err);
+      console.error('Titan Omega Hook Parser Error:', err);
       return defaultTelemetry;
     }
   }, []);
 
-  // TAURI POLLING
   useEffect(() => {
     if (!isTauri()) return;
-
     let isMounted = true;
     let timerId: ReturnType<typeof setTimeout>;
 
     const poll = async () => {
       if (!isMounted) return;
-
       try {
-        const rawJson = await invoke<string>('get_telemetry_data');
-        const rawObj = JSON.parse(rawJson);
-
-        if (rawObj.closing || !rawObj.sdk_active) {
+        const rawObj = await invoke<any>('get_telemetry_data');
+        setRaw(rawObj);
+        if (!rawObj.game?.connected) {
           setData(defaultTelemetry);
           setConnected(false);
-          // "Peace Period" is critical. 3s gives the game plenty of room to shut down.
-          timerId = setTimeout(poll, 10000);
+          timerId = setTimeout(poll, 2000);
         } else {
-          // SUCCESS: The game is active. 
           setData(parseTelemetryResponse(rawObj));
           setConnected(true);
-          timerId = setTimeout(poll, 500);
+          timerId = setTimeout(poll, 100);
         }
       } catch (err) {
         setConnected(false);
-        timerId = setTimeout(poll, 10000);
+        timerId = setTimeout(poll, 5000);
       }
     };
 
     poll();
-    return () => {
-      isMounted = false;
-      clearTimeout(timerId);
-    };
+    return () => { isMounted = false; clearTimeout(timerId); };
   }, [parseTelemetryResponse]);
 
   return {
     data,
     connected,
-    error,
-    lastUpdate,
-    isJobActive: !!data.job,
-    isGameRunning: data.game.connected && !data.game.paused,
-    connect,
-    disconnect,
+    isJobActive: !!data.job?.active,
+    raw: raw // Explicitly return the full raw buffer for the SDK viewer
   };
 }
-// The thing added here is sifted to another file, name as""use telementry extra.txt"
-// upto here.
-
-export type JobState = 'NO_JOB' | 'JOB_DETECTED' | 'JOB_ACTIVE' | 'JOB_DISCONNECTED' | 'JOB_FINISHED';
 
 export function useAutoJobLogger() {
+  const { user } = useAuth();
   const { data, connected, isJobActive } = useTelemetry();
+  const [pendingJob, setPendingJob] = useState<TelemetryData['job'] | null>(null);
+  const [startOdometer, setStartOdometer] = useState<number | null>(null);
+  const [startFuel, setStartFuel] = useState<number | null>(null); // Kept for reference
+  const [accumulatedFuel, setAccumulatedFuel] = useState<number>(0);
+  const [prevFuelTrack, setPrevFuelTrack] = useState<number | null>(null);
+  const [stickyPlannedDistance, setStickyPlannedDistance] = useState<number>(0);
+  const [startExpenses, setStartExpenses] = useState<{ fines: number; tolls: number; repairs: number } | null>(null);
+  const [isLogging, setIsLogging] = useState(false);
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [prevTruckBrand, setPrevTruckBrand] = useState<string>('');
+  const [prevTruckName, setPrevTruckName] = useState<string>('');
+  const [startEvents, setStartEvents] = useState<{ delivered: number; cancelled: number } | null>(null);
+  const [jobStartedAt, setJobStartedAt] = useState<string | null>(null);
+  const [finalStatusOverride, setFinalStatusOverride] = useState<'delivered' | 'cancelled' | null>(null);
+  const lastDiscordCargoId = useRef<string | null>(null);
 
-  const [pendingJob, setPendingJob] = useState<TelemetryJob | null>(null);
-  const [jobState, setJobState] = useState<JobState>('NO_JOB');
-  const [detectionOdometer, setDetectionOdometer] = useState<number | null>(null);
-
-  // Timing references for state machine delays
-  const stateTimerRef = useRef<NodeJS.Timeout | null>(null);
-
-  const [jobStartData, setJobStartData] = useState<{
-    startOdometer: number;
-    startFuel: number;
-    plannedDistance: number;
-    isLogged?: boolean;
-    jobId: string;
-    // New fields for cumulative tracking
-    fuelConsumedAccumulated: number;
-    expensesAccumulated: number;
-    lastTickFuel: number;
-  } | null>(null);
-
-  const [jobJustFinished, setJobJustFinished] = useState(false);
-
-  // Helper to generate a unique-ish ID for a job (fingerprint)
-  const getJobId = useCallback((job: TelemetryJob, plannedDistance: number) => {
-    const cargoName = typeof job.cargo === 'object' ? job.cargo.name : job.cargo;
-    return `${cargoName}-${job.sourceCity}-${job.destinationCity}-${Math.round(plannedDistance)}`;
-  }, []);
-
-  // Persistence Keys
-  const STORAGE_KEY_JOB = 'aura_last_active_job';
-  const STORAGE_KEY_START = 'aura_job_start_data';
-
-  // Track job start with persistence
+  // Track start/end of jobs
   useEffect(() => {
-    // 1. Check for persisted data on mount or when telemetry connects
-    if (connected && !jobStartData) {
-      const savedJob = localStorage.getItem(STORAGE_KEY_JOB);
-      const savedStart = localStorage.getItem(STORAGE_KEY_START);
+    // START: Job detected - Make it sticky if the cargo is the same
+    if (isJobActive && data.job) {
+      const isNewCargo = pendingJob?.cargoId !== data.job.cargoId;
+      const isNewTruck = data.truck.brand !== prevTruckBrand || data.truck.name !== prevTruckName;
 
-      if (savedJob && savedStart && data.job) {
-        try {
-          const parsedJob = JSON.parse(savedJob);
-          const parsedStart = JSON.parse(savedStart);
-          // Note: When parsing, we need a current JobId to compare if the game is still active,
-          // but if we are just comparing against the CURRENT game state, we need to pass planned distance.
-          // However, plannedDistance of the current session should match the parsed session if it's the SAME job.
-          const currentJobId = getJobId(data.job, parsedStart.plannedDistance);
+      // Reset if it's a new job, a new truck, or if we just haven't set it yet
+      if (!startOdometer || isNewCargo || isNewTruck) {
+        setStartOdometer(data.truck.dash.odometer);
+        setStartFuel(data.truck.dash.fuel);
+        setAccumulatedFuel(0);
+        setPrevFuelTrack(data.truck.dash.fuel);
+        setPrevTruckBrand(data.truck.brand);
+        setPrevTruckName(data.truck.name);
 
-          if (parsedStart.jobId === currentJobId) {
-            console.log('Aura: Resuming persisted job tracking');
-            setPendingJob(parsedJob);
-            setJobStartData(parsedStart);
-            return;
-          } else {
-            // Job ID mismatch - the previous job was likely cancelled or finished while offline
-            console.log('Aura: Job mismatch, marking previous as possibly cancelled');
-            // Here we could trigger a cancel log if we had an API for it
-            localStorage.removeItem(STORAGE_KEY_JOB);
-            localStorage.removeItem(STORAGE_KEY_START);
-          }
-        } catch (e) {
-          console.error('Aura: Error restoring job persistence', e);
+        const initialPlanned = data.job.plannedDistance > 0
+          ? data.job.plannedDistance
+          : (data.truck.navigation.distance / 1000);
+        setStickyPlannedDistance(initialPlanned);
+
+        setStartExpenses({
+          fines: data.events.fineAmount || 0,
+          tolls: (data.events.tollAmount || 0) + (data.events.ferryAmount || 0) + (data.events.trainAmount || 0),
+          repairs: data.events.repairAmount || 0
+        });
+
+        setStartEvents({
+          delivered: data.events.delivered || 0,
+          cancelled: data.events.cancelled || 0,
+        });
+        const startedAt = new Date().toISOString();
+        setJobStartedAt(startedAt);
+
+        if (isNewCargo || !jobId) {
+          const newJobId = crypto.randomUUID();
+          setJobId(newJobId);
         }
-      }
-    }
 
-    // ==========================================
-    // STATE MACHINE LOGIC
-    // ==========================================
-
-    // 1. Telemetry Disconnected Grace Period
-    if (!connected && (jobState === 'JOB_ACTIVE' || jobState === 'JOB_DISCONNECTED')) {
-      if (jobState !== 'JOB_DISCONNECTED') {
-        setJobState('JOB_DISCONNECTED');
-        console.log('Aura: Telemetry disconnected. Entering 30s grace period...');
-
-        if (stateTimerRef.current) clearTimeout(stateTimerRef.current);
-        stateTimerRef.current = setTimeout(() => {
-          console.log('Aura: Grace period expired. Assuming job was abandoned offline.');
-          setJobState('NO_JOB');
-          setJobStartData(null);
-          setPendingJob(null);
-          localStorage.removeItem(STORAGE_KEY_JOB);
-          localStorage.removeItem(STORAGE_KEY_START);
-        }, 30000); // 30 second disconnect grace period
-      }
-      return;
-    }
-
-    // Clear grace period if we reconnect while still active
-    if (connected && jobState === 'JOB_DISCONNECTED' && isJobActive) {
-      console.log('Aura: Telemetry reconnected. Resuming active job.');
-      if (stateTimerRef.current) clearTimeout(stateTimerRef.current);
-      setJobState('JOB_ACTIVE');
-    }
-
-    // 2. Job Start Detection
-    if (connected && isJobActive && data.job && jobState === 'NO_JOB' && !jobStartData) {
-      setJobState('JOB_DETECTED');
-      setDetectionOdometer(data.truck.odometer);
-      console.log('Aura: Potential new job picked up. Waiting for 0.1km movement to confirm...');
-    }
-
-    // 2.5 Job Start Confirmation (Distance moved > 0.1km)
-    if (connected && isJobActive && data.job && jobState === 'JOB_DETECTED' && detectionOdometer !== null) {
-      if (data.truck.odometer - detectionOdometer > 0.1) {
-        console.log('Aura: Job confirmed active (Driver moved 0.1km+). Starting tracking.');
-
-        const plannedDistance = data.navigation.estimatedDistance / 1000;
-        const startOdometer = data.truck.odometer;
-        const jobId = getJobId(data.job, plannedDistance);
-
-        const newStartData = {
-          startOdometer,
-          startFuel: data.truck.fuel,
-          plannedDistance,
-          jobId,
-          isLogged: false,
-          fuelConsumedAccumulated: 0,
-          expensesAccumulated: 0,
-          lastTickFuel: data.truck.fuel
-        };
-
-        setJobStartData(newStartData);
         setPendingJob(data.job);
-        setJobState('JOB_ACTIVE');
-        setDetectionOdometer(null);
+        console.log(' Titan Omega: New Job Detected or Cargo Changed.');
+      } else {
+        // Continuous tracking while job is active
 
-        localStorage.setItem(STORAGE_KEY_JOB, JSON.stringify(data.job));
-        localStorage.setItem(STORAGE_KEY_START, JSON.stringify(newStartData));
-      }
-    }
-
-    // 3. Keep Track of Latest Valid Data while Active
-    if (connected && isJobActive && data.job && jobState === 'JOB_ACTIVE' && jobStartData) {
-      // CUMULATIVE FUEL TRACKING
-      let fuelDelta = 0;
-      if (data.truck.fuel < jobStartData.lastTickFuel) {
-        fuelDelta = jobStartData.lastTickFuel - data.truck.fuel;
-      }
-
-      // EXPENSE TRACKING (Capturing increases in fines/tolls/repairs)
-      // Note: We use the delta to handle situations where multiple events happen in one tick
-      // but usually the SDK sums them. We'll track the delta of the 'fines', 'tolls', 'repairs' fields.
-      // However, most SDKs provide these as events or session totals. 
-      // We'll trust the delta for cumulative logging during the job.
-      let expenseDelta = 0;
-      const currentExpenses = (data.truck as any).fines + (data.truck as any).tolls + (data.truck as any).repairs;
-      const lastExpenses = (jobStartData as any).lastTickExpenses || 0;
-      
-      if (currentExpenses > lastExpenses) {
-        expenseDelta = currentExpenses - lastExpenses;
-      }
-
-      setJobStartData(prev => prev ? {
-        ...prev,
-        fuelConsumedAccumulated: prev.fuelConsumedAccumulated + fuelDelta,
-        expensesAccumulated: prev.expensesAccumulated + expenseDelta,
-        lastTickFuel: data.truck.fuel,
-        lastTickExpenses: currentExpenses
-      } : null);
-
-      setPendingJob(data.job);
-      setJobJustFinished(false);
-    }
-
-    // 4. Job End Detection (Job was Active, now NULL)
-    if (connected && !isJobActive && data.job === null && jobState === 'JOB_ACTIVE') {
-      console.log('Aura: Job signal lost. Waiting 10 seconds to confirm completion (Persists through restarts)...');
-      setJobState('JOB_FINISHED'); // Enter pending finish state
-
-      if (stateTimerRef.current) clearTimeout(stateTimerRef.current);
-      stateTimerRef.current = setTimeout(() => {
-        // STILL null after 3 seconds? Confirm it's done. Multi-signal verification
-        if (!isJobActive && data.job === null && jobStartData && pendingJob) {
-
-          if (!jobStartData.isLogged) {
-            console.log('Aura: Job officially completed. Firing trigger.');
-            setJobJustFinished(true);
-
-            const updatedStart = { ...jobStartData, isLogged: true };
-            setJobStartData(updatedStart);
-            localStorage.setItem(STORAGE_KEY_START, JSON.stringify(updatedStart));
-
-            setTimeout(() => {
-              setJobJustFinished(false);
-              setJobStartData(null);
-              setPendingJob(null);
-              setJobState('NO_JOB');
-              localStorage.removeItem(STORAGE_KEY_JOB);
-              localStorage.removeItem(STORAGE_KEY_START);
-            }, 5000);
+        // If sticky planned distance locked at 0 while GPS was calculating, wait for it to populate
+        let currentPlanned = stickyPlannedDistance;
+        if (stickyPlannedDistance === 0) {
+          const gpsDist = data.truck.navigation.distance / 1000;
+          if (data.job.plannedDistance > 0) {
+            setStickyPlannedDistance(data.job.plannedDistance);
+            currentPlanned = data.job.plannedDistance;
+          } else if (gpsDist > 0) {
+            setStickyPlannedDistance(gpsDist);
+            currentPlanned = gpsDist;
           }
-        } else {
-          // It was a telemetry glitch, it came back!
-          console.log('Aura: False alarm job end. Resuming track.');
-          setJobState('JOB_ACTIVE');
         }
-      }, 10000); // 10 second end confirmation delay
+
+        // Delay webhook until GPS actually establishes the route to prevent "0 km (Planned)"
+        if (currentPlanned > 0 && jobId && user?.user_metadata?.username && lastDiscordCargoId.current !== data.job.cargoId) {
+          lastDiscordCargoId.current = data.job.cargoId;
+          const avatarUrl = user.user_metadata.avatar_url || "https://postimg.cc/G9xHn83L";
+
+          sendDiscordWebhook('job_started', {
+            username: user.user_metadata.username,
+            avatar_url: avatarUrl,
+            job_id: jobId,
+            origin_city: data.job.source,
+            destination_city: data.job.destination,
+            planned_distance_km: currentPlanned,
+            cargo_weight: Math.round(data.job.cargoMass / 1000),
+            cargo_type: data.job.cargo,
+            truck_name: `${data.truck.brand} ${data.truck.name}`,
+            started_at: jobStartedAt || new Date().toISOString()
+          });
+        }
+
+        if (prevFuelTrack !== null && data.truck.dash.fuel && data.truck.dash.fuel < prevFuelTrack) {
+          // If fuel went down, add difference
+          setAccumulatedFuel(prev => prev + (prevFuelTrack - data.truck.dash.fuel));
+        }
+        if (data.truck.dash.fuel) {
+          setPrevFuelTrack(data.truck.dash.fuel);
+        }
+      }
     }
 
-    // 5. Cleanup stray starts
-    if (connected && !isJobActive && data.job === null && jobState === 'JOB_DETECTED') {
-      // Detected briefly then cancelled before 0.5km
-      setJobState('NO_JOB');
-      setDetectionOdometer(null);
+    // END: Job finished (Verified natively by Game Engine Events)
+    if (pendingJob && startEvents) {
+      const deliveredInc = (data.events.delivered || 0) > startEvents.delivered;
+      const cancelledInc = (data.events.cancelled || 0) > startEvents.cancelled;
+
+      if ((deliveredInc || cancelledInc) && !isLogging) {
+        console.log(` Titan Omega: Engine Job Completion Signal Detected. (${deliveredInc ? 'Delivered' : 'Cancelled'})`);
+        setIsLogging(true);
+        setFinalStatusOverride(deliveredInc ? 'delivered' : 'cancelled');
+
+        // Auto-reset after 5 seconds to be ready for next job
+        const timer = setTimeout(() => {
+          setIsLogging(false);
+          setStartOdometer(null);
+          setStartFuel(null);
+          setAccumulatedFuel(0);
+          setPrevFuelTrack(null);
+          setPendingJob(null);
+          setJobId(null);
+          setStartEvents(null);
+          setJobStartedAt(null);
+          setFinalStatusOverride(null);
+        }, 5000);
+        return () => clearTimeout(timer);
+      }
     }
-
-  }, [isJobActive, data.job, data.truck.odometer, data.truck.fuel, data.navigation.estimatedDistance, jobStartData, connected, getJobId, jobState, pendingJob, detectionOdometer]);
-
-
+  }, [isJobActive, data.truck.dash.odometer, data.job, pendingJob, data.job?.cargoId, data.truck.brand, data.truck.name, startOdometer, jobId, data.truck.dash.fuel, data.events, startExpenses, startEvents, isLogging]);
 
   const prepareJobData = useCallback(() => {
-    // Determine the job payload using pendingJob (the cached most recent active job)
-    const activeJob = data.job || pendingJob;
-    if (!activeJob || !jobStartData) return null;
+    // For terminal state (cancelled/delivered), we must look at data.job for final outcome (penalty/xp/event)
+    // but pendingJob for original source/dest if data.job is already cleared.
+    const job = data.job && !data.job.active ? data.job : (pendingJob || data.job);
+    if (!job) return null;
 
-    // Use floating point for precision before rounding at the end
-    const distanceKm = data.truck.odometer - jobStartData.startOdometer;
-    const fuelConsumed = jobStartData.fuelConsumedAccumulated;
+    // Prefer job.distanceKm from SCS (high precision for finished jobs) if it's > 0
+    let driven = data.job?.distanceKm || (startOdometer ? data.truck.dash.odometer - startOdometer : 0);
 
-    // Determine status (80% threshold for delivered vs cancelled)
-    const plannedDistance = jobStartData.plannedDistance;
-    const isCompleted = distanceKm >= plannedDistance * 0.8;
-    const status = isCompleted ? 'delivered' : 'cancelled';
-    const finalIncome = isCompleted ? activeJob.income : 0;
+    // Safety
+    if (driven < 0 || driven > 20000) {
+      driven = stickyPlannedDistance || 0;
+    }
+
+    // Status Logic
+    const isCancelled = job.cargoEvent === 2 || data.job?.cargoEvent === 2;
+    const finalStatusFallback = isCancelled ? 'cancelled' : (!isJobActive && job.cargoId ? 'delivered' : 'active');
+    const finalStatus = finalStatusOverride || finalStatusFallback;
+
+    // Use the continuous live fuel accumulator so refueling doesn't reset it
+    const fuelConsumed = accumulatedFuel;
+
+    // Expenses Delta
+    const currentTolls = (data.events.tollAmount || 0) + (data.events.ferryAmount || 0) + (data.events.trainAmount || 0);
+    const finesDelta = Math.max(0, (data.events.fineAmount || 0) - (startExpenses?.fines || 0));
+    const tollsDelta = Math.max(0, currentTolls - (startExpenses?.tolls || 0));
+    const repairsDelta = Math.max(0, (data.events.repairAmount || 0) - (startExpenses?.repairs || 0));
+    const totalExpenses = finesDelta + tollsDelta + repairsDelta;
+
+    // Fallback for planned distance: if config is 0, use our sticky initial value
+    const plannedKm = job.plannedDistance > 0 ? job.plannedDistance : stickyPlannedDistance;
+
+    const damagePercent = data.job?.progress || job.progress || 0;
+
+    // Manual XP Calculation Fallback
+    let calculatedXp = Math.round(job.xp || 0);
+    if (calculatedXp === 0 && driven > 0) {
+      const baseDistanceXp = driven;
+      const specialBonus = job.isSpecial ? driven * 0.2 : 0;
+      const parkingBonus = (!job.autoPark && !isCancelled) ? 45 : 0;
+      let rawCalculate = baseDistanceXp + specialBonus + parkingBonus;
+
+      // Cancelled jobs only get 50% distance credit and NO parking bonus
+      if (isCancelled) {
+        rawCalculate = baseDistanceXp * 0.5;
+      }
+
+      // Damage penalty: -5 XP per 1% of damage, capped to never go below 10 XP
+      const damagePenalty = damagePercent * 5;
+      calculatedXp = Math.max(Math.round(rawCalculate - damagePenalty), 10);
+    }
+
+    const durationSeconds = jobStartedAt ? Math.round((Date.now() - new Date(jobStartedAt).getTime()) / 1000) : 0;
+
+    let fuelEconomy = data.truck.dash.avgFuelConsumption || 0;
+    if (fuelEconomy === 0 && fuelConsumed > 0 && driven > 0) {
+      fuelEconomy = (fuelConsumed / driven) * 100;
+    }
 
     return {
-      job_id: jobStartData.jobId,
-      status,
-      planned_distance_km: Math.round(plannedDistance),
-      origin_city: activeJob.sourceCity,
-      destination_city: activeJob.destinationCity,
-      distance_km: Number(distanceKm.toFixed(1)),
-      cargo_type: typeof activeJob.cargo === 'string' ? activeJob.cargo : activeJob.cargo.name,
-      cargo_weight: activeJob.cargoMass / 1000, // kg to tons
+      job_id: jobId || crypto.randomUUID(),
+      origin_city: job.source,
+      destination_city: job.destination,
+      planned_distance_km: Math.round(plannedKm),
+      distance_km: driven > 0 ? Math.round(driven) : 0,
+      cargo_type: job.cargo,
+      cargo_weight: Math.round(job.cargoMass / 1000),
       fuel_consumed: Math.round(fuelConsumed),
-      income: finalIncome,
-      damage_percent: Number((activeJob.cargoDamage * 100).toFixed(2)),
-      expenses: Math.round(jobStartData.expensesAccumulated),
+      avg_fuel_consumption: Number(fuelEconomy.toFixed(2)),
+      income: Math.round(job.income),
+      revenue: Math.round(job.revenue || job.income),
+      xp_earned: calculatedXp,
+      expenses: Math.round(totalExpenses),
+      fine_amount: Math.round(finesDelta),
+      damage_percent: Math.round(damagePercent),
+      truck_name: `${data.truck.brand} ${data.truck.name}`,
+      truck_id: data.truck.brand,
+      trailer_id: data.trailer[0]?.id || 'none',
+      status: finalStatus,
+      auto_park: job.autoPark || false,
+      auto_load: job.autoLoad || false,
+      job_market: job.market || 'freight',
+      mp_time_offset: data.game.mpTimeOffset || 0,
+      is_special_transport: job.isSpecial || false,
+      delivery_date: new Date().toISOString(),
+      started_at: jobStartedAt || new Date().toISOString(),
+      duration_seconds: durationSeconds
     };
-  }, [data.job, pendingJob, data.truck, jobStartData]);
-
-
+  }, [data, pendingJob, startOdometer, isJobActive, jobId, stickyPlannedDistance, startExpenses, startFuel, finalStatusOverride, jobStartedAt, accumulatedFuel]);
 
   return {
-
     telemetryConnected: connected,
     currentJob: data.job,
     truckData: data.truck,
     pendingJob,
-    jobState,
     prepareJobData,
-    jobJustFinished,
-    clearPendingJob: () => setPendingJob(null),
+    isLogging,
+    startOdometer,
+    stickyPlannedDistance,
   };
 }

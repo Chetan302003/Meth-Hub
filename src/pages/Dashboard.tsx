@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useFleetStats, usePersonalStats, useWeeklyData } from '@/hooks/useFleetStats';
 import { useEventReminders } from '@/hooks/useEventReminders';
-import { AppLayout } from '@/components/layout/AppLayout';
+import { useLocalDb } from '@/hooks/useLocalDb';
 import { GlassCard, StatCard, MiniStat } from '@/components/layout/GlassCard';
 import { FeaturedEventsCarousel } from '@/components/events/FeaturedEventsCarousel';
 import { supabase } from '@/integrations/supabase/client';
@@ -87,6 +87,22 @@ export default function Dashboard() {
     fetchAnnouncements();
   }, []);
 
+  const { syncJobsToSupabase } = useLocalDb();
+
+  // Background worker for V7.0 Offline Sync
+  useEffect(() => {
+    // Initial sync
+    syncJobsToSupabase();
+
+    // Routine ghost-sync every 30 seconds
+    const interval = setInterval(() => {
+      syncJobsToSupabase();
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [syncJobsToSupabase]);
+
+
   const formatNumber = (num: number) => {
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
     if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
@@ -133,7 +149,7 @@ export default function Dashboard() {
   };
 
   return (
-    <AppLayout>
+    <>
       <div className="space-y-6 lg:space-y-8">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -448,13 +464,13 @@ export default function Dashboard() {
                 <Truck size={20} />
               </div>
               <p className="text-lg sm:text-xl lg:text-2xl font-bold text-purple">
-                {stats ? `${formatNumber(stats.avg_load_weight)} t` : '0 t'}
+                {stats ? `${formatNumber(stats.total_load_weight)} t` : '0 t'}
               </p>
-              <p className="text-muted-foreground text-xs sm:text-sm">Avg Weight</p>
+              <p className="text-muted-foreground text-xs sm:text-sm">Total Weight</p>
             </div>
           </div>
         </GlassCard>
       </div>
-    </AppLayout>
+    </>
   );
 }

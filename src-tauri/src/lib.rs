@@ -1,57 +1,15 @@
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::LazyLock; // Standard library alternative to once_cell
-use std::sync::Mutex;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
+
+mod telemetry;
+mod rpc;
 
 // This prevents the app from spamming the game while it's trying to close
 static GAME_CLOSING: LazyLock<AtomicBool> = LazyLock::new(|| AtomicBool::new(false));
 
-// Use a raw pointer or manual mapping approach if possible, but for now we 
-// ensure that the struct `data` is mapped and subsequently unmapped on closure
-#[tauri::command]
-fn get_telemetry_data() -> Result<String, String> {
-    if GAME_CLOSING.load(Ordering::Relaxed) {
-        return Ok("{\"sdk_active\": false, \"closing\": true}".to_string());
-    }
-
-    // Rather than maintaining a lock that might hold the game indefinitely,
-    // we connect, read quickly, and drop cleanly.
-    // Given that 2 times a second was slowing it down *because* of open handles,
-    // dropping them properly within the Mutex might be necessary.
-    
-    // Instead of holding it globally, let's go back to single-use BUT 
-    // we drop the shared memory handle explicitly before the JSON conversion holds it open.
-    let mut shared_mem = match scs_sdk_telemetry::shared_memory::SharedMemory::connect() {
-        Ok(mem) => mem,
-        Err(_) => return Ok("{\"sdk_active\": false}".to_string()),
-    };
-
-    let mut data = shared_mem.read();
-    
-    // Check if the game is shutting down
-    if !data.sdk_active {
-        GAME_CLOSING.store(true, Ordering::Relaxed);
-        drop(data);
-        drop(shared_mem); // Force close handle on Windows
-        return Ok("{\"sdk_active\": false}".to_string());
-    }
-
-    // Crucial fix: Clone/convert the data out of the memory block, then immediately drop 
-    // the Windows Handle *before* taking time to run the heavy JSON serialization logic!
-    // This gives the game breathing room to close the memory map between our 500ms polls.
-    let json_output = {
-        let serialized = data.to_json().map_err(|e| e.to_string())?.to_string();
-        serialized
-    };
-
-    // Close memory handle quickly
-    drop(data);
-    drop(shared_mem);
-
-    Ok(json_output)
-}
 
 #[tauri::command]
 fn reset_telemetry_lock() {
@@ -96,11 +54,14 @@ fn install_telemetry_plugin(app: AppHandle, custom_path: Option<String>) -> Resu
 
 pub fn run() {
     tauri::Builder::default()
+        .manage(rpc::DiscordState(std::sync::Mutex::new(None)))
         // Initialize all plugins here at the top level
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_sql::Builder::default().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(
             tauri_plugin_log::Builder::default()
@@ -112,9 +73,12 @@ pub fn run() {
                 .build(),
         )
         .invoke_handler(tauri::generate_handler![
-            get_telemetry_data, 
+            telemetry::get_telemetry_data, 
             reset_telemetry_lock,
-            install_telemetry_plugin
+            install_telemetry_plugin,
+            rpc::init_discord_rpc,
+            rpc::set_discord_rpc,
+            rpc::clear_discord_rpc
         ])
     .setup(|_app|{
     Ok(())

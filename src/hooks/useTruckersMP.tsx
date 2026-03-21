@@ -1,5 +1,9 @@
 import { useState, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { BaseDirectory, exists, mkdir, writeFile } from '@tauri-apps/plugin-fs';
+import { appLocalDataDir, join } from '@tauri-apps/api/path';
+import { convertFileSrc } from '@tauri-apps/api/core';
+import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
+import { isTauri } from '@/lib/tauri';
 
 export interface TMPPlayer {
   id: number;
@@ -90,13 +94,14 @@ export function useTruckersMP() {
 
   // Safely grab data whether edge function unwraps it or keeps the response wrapper
   const extractData = (data: any) => {
-    if (!data) return null;
-    if (Array.isArray(data)) return data;
-    if (data.response !== undefined) return data.response;
-    return data;
+    if (!data) return [];
+    // Handle nested API responses
+    const raw = data.response !== undefined ? data.response : data;
+    // Always return an array
+    return Array.isArray(raw) ? raw : [];
   };
 
-  // Fetch player data by TruckersMP ID using edge function
+  // Fetch player data by TruckersMP ID using Tauri native HTTP
   const getPlayer = useCallback(async (tmpId: string): Promise<TMPPlayer | null> => {
     if (!tmpId || !/^\d+$/.test(tmpId)) {
       return null;
@@ -105,12 +110,12 @@ export function useTruckersMP() {
     setLoading(true);
     setError(null);
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('tmp-player', {
-        body: { tmpId },
+      const response = await tauriFetch(`https://api.truckersmp.com/v2/player/${tmpId}`, {
+        method: 'GET'
       });
-
-      if (fnError) throw fnError;
-      return extractData(data) || null;
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      return (data?.response || data) as TMPPlayer || null;
     } catch (err) {
       console.error('[TMP] Error fetching player:', err);
       setError('Failed to fetch player data');
@@ -129,39 +134,95 @@ export function useTruckersMP() {
     return `https://truckersmp.com/user/${tmpId}/avatar`;
   }, []);
 
-  // Fetch player avatar using edge function
+  // Fetch player avatar using edge function (and cache locally to disk if Tauri)
   const fetchPlayerAvatar = useCallback(async (tmpId: string): Promise<string | null> => {
     if (!tmpId || !/^\d+$/.test(tmpId)) return null;
 
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('tmp-player', {
-        body: { tmpId },
+      if (isTauri()) {
+        try {
+          const dir = await appLocalDataDir();
+          const cacheDir = await join(dir, 'avatars');
+          const filePath = await join(cacheDir, `${tmpId}.png`);
+
+          if (await exists(filePath)) {
+            console.log('[TMP] Loaded avatar from local cache:', filePath);
+            return convertFileSrc(filePath);
+          }
+        } catch (e) {
+          console.error('[TMP] Error checking local cache:', e);
+        }
+      }
+
+      // Fetch player data via native Tauri HTTP:
+      const response = await tauriFetch(`https://api.truckersmp.com/v2/player/${tmpId}`, {
+        method: 'GET'
       });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
 
-      if (fnError) throw fnError;
+      const extracted = data?.response || data;
+      const avatarUrl = extracted?.avatar || null;
 
-      const extracted = extractData(data);
-      return extracted?.avatar || null;
+      if (avatarUrl && isTauri()) {
+        try {
+          const dir = await appLocalDataDir();
+          const cacheDir = await join(dir, 'avatars');
+          const filePath = await join(cacheDir, `${tmpId}.png`);
+
+          if (!(await exists(cacheDir))) {
+            await mkdir(cacheDir, { recursive: true });
+          }
+
+          const response = await tauriFetch(avatarUrl, {
+            method: 'GET',
+          });
+          
+          if (response.ok) {
+            const buffer = await response.arrayBuffer();
+            await writeFile(filePath, new Uint8Array(buffer));
+            console.log('[TMP] Saved avatar to local cache:', filePath);
+            return convertFileSrc(filePath);
+          } else {
+            console.error('[TMP] Failed to download avatar, status:', response.status);
+          }
+        } catch (e) {
+          console.error('[TMP] Error writing local cache:', e);
+        }
+      }
+
+      return avatarUrl;
     } catch (err) {
       console.error('[TMP] Error fetching avatar:', err);
       return null;
     }
   }, []);
 
-  // Fetch upcoming events using edge function
+  // Fetch attending events using Tauri Desktop bypass
   const getEvents = useCallback(async (): Promise<TMPEvent[]> => {
     setLoading(true);
     setError(null);
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('tmp-events', {});
+      const response = await tauriFetch('https://api.truckersmp.com/v2/vtc/75200/events/attending', {
+        method: 'GET'
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
 
-      if (fnError) throw fnError;
       const rawEvents = extractData(data) || [];
-      return rawEvents.map((e: any) => ({
-        ...e,
-        startAt: e.startAt || e.start_at,
-        meetupAt: e.meetupAt || e.meetup_at
-      }));
+      const twoMonthsAgo = new Date();
+      twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
+
+      return rawEvents
+        .map((e: any) => ({
+          ...e,
+          startAt: e.startAt || e.start_at,
+          meetupAt: e.meetupAt || e.meetup_at
+        }))
+        .filter((e: any) => {
+          const eventDate = new Date(e.startAt || e.start_at || '');
+          return eventDate >= twoMonthsAgo;
+        });
     } catch (err) {
       console.error('[TMP] Error fetching events:', err);
       setError('Failed to fetch events');
@@ -171,16 +232,19 @@ export function useTruckersMP() {
     }
   }, []);
 
-  // Fetch VTC specific events from TruckersMP API using edge function
+  // Fetch VTC specific events from TruckersMP API using Tauri Desktop bypass
   const getVTCEvents = useCallback(async (): Promise<TMPEvent[]> => {
     setLoading(true);
     setError(null);
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('vtc-events', {});
+      const response = await tauriFetch('https://api.truckersmp.com/v2/vtc/75200/events', {
+        method: 'GET'
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const json = await response.json();
 
-      if (fnError) throw fnError;
-
-      const rawEvents = extractData(data) || [];
+      // VTC events API nests under response key
+      const rawEvents = Array.isArray(json?.response) ? json.response : [];
       return rawEvents.map((e: any) => ({
         ...e,
         startAt: e.startAt || e.start_at,
@@ -195,14 +259,17 @@ export function useTruckersMP() {
     }
   }, []);
 
-  // Fetch server status using edge function
+  // Fetch server status using Tauri Desktop bypass
   const getServers = useCallback(async (): Promise<TMPServer[]> => {
     setLoading(true);
     setError(null);
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('tmp-servers', {});
+      const response = await tauriFetch('https://api.truckersmp.com/v2/servers', {
+        method: 'GET'
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
 
-      if (fnError) throw fnError;
       return extractData(data) || [];
     } catch (err) {
       console.error('[TMP] Error fetching servers:', err);

@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { AppLayout } from '@/components/layout/AppLayout';
 import { GlassCard } from '@/components/layout/GlassCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -196,7 +195,7 @@ export default function Announcements() {
 
   if (!canManage) {
     return (
-      <AppLayout>
+      <>
         <div className="flex items-center justify-center min-h-[60vh]">
           <GlassCard className="max-w-md text-center">
             <AlertTriangle size={48} className="mx-auto text-warning mb-4" />
@@ -206,12 +205,12 @@ export default function Announcements() {
             </p>
           </GlassCard>
         </div>
-      </AppLayout>
+      </>
     );
   }
 
   return (
-    <AppLayout>
+    <>
       <div className="space-y-8">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -376,6 +375,6 @@ export default function Announcements() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </AppLayout>
+    </>
   );
 }

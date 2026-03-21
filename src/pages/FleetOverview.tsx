@@ -1,5 +1,4 @@
 import { useFleetStats } from '@/hooks/useFleetStats';
-import { AppLayout } from '@/components/layout/AppLayout';
 import { GlassCard, StatCard } from '@/components/layout/GlassCard';
 import {
   MapPin,
@@ -75,7 +74,7 @@ export default function FleetOverview() {
   };
 
   return (
-    <AppLayout>
+    <>
       <div className="space-y-8">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -140,8 +139,8 @@ export default function FleetOverview() {
             icon={<Truck size={24} />}
           />
           <StatCard
-            title="Avg Load Weight"
-            value={stats ? `${formatNumber(stats.avg_load_weight)} t` : '—'}
+            title="Total Load Weight"
+            value={stats ? `${formatNumber(stats.total_load_weight)} t` : '—'}
             icon={<Scale size={24} />}
           />
         </div>
@@ -334,6 +333,6 @@ export default function FleetOverview() {
           </div>
         </GlassCard>
       </div>
-    </AppLayout>
+    </>
   );
 }

@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { AppLayout } from '@/components/layout/AppLayout';
 import { GlassCard } from '@/components/layout/GlassCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -357,7 +356,7 @@ export default function Events() {
   const pastVTCEvents = vtcEvents.filter(e => !isFuture(parseISO(e.start_time)) || e.status === 'cancelled');
 
   return (
-    <AppLayout>
+    <>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -488,7 +487,7 @@ export default function Events() {
                   Past Events ({pastVTCEvents.length})
                 </h2>
                 <div className="grid gap-4 opacity-60">
-                  {pastVTCEvents.slice(0, 5).map((event) => (
+                  {pastVTCEvents.slice(0, 2).map((event) => (
                     <VTCEventCard
                       key={event.id}
                       event={event}
@@ -582,7 +581,7 @@ export default function Events() {
           </DialogContent>
         </Dialog>
       </div>
-    </AppLayout>
+    </>
   );
 }
 

@@ -1,0 +1,63 @@
+﻿cargo :     Checking app 
+v0.1.0 
+(D:\auravtchub\src-tauri)
+At line:1 char:1
++ cargo check 
+--no-default-features 2>&1 | 
+Out-File -FilePath check_res 
+...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~
+    + CategoryInfo           
+   : NotSpecified: (    Che  
+  cking ap...chub\src-taur   
+ i):String) [], RemoteExc    
+eption
+    + FullyQualifiedErrorId  
+   : NativeCommandError
+ 
+warning: unused import: 
+`Path`
+ --> src\lib.rs:4:17
+  |
+4 | use std::path::{Path, 
+PathBuf};
+  |                 ^^^^
+  |
+  = note: 
+`#[warn(unused_imports)]` 
+(part of `#[warn(unused)]`) 
+on by default
+
+error[E0308]: mismatched 
+types
+   --> 
+src\telemetry.rs:413:32
+    |
+413 |                     
+aux_front: 
+raw.light_aux_front,
+    |                        
+        ^^^^^^^^^^^^^^^^^^^ 
+expected `u32`, found `u8`
+
+error[E0308]: mismatched 
+types
+   --> 
+src\telemetry.rs:414:31
+    |
+414 |                     
+aux_roof: raw.light_aux_roof,
+    |                        
+       ^^^^^^^^^^^^^^^^^^ 
+expected `u32`, found `u8`
+
+For more information about 
+this error, try `rustc 
+--explain E0308`.
+warning: `app` (lib) 
+generated 1 warning
+error: could not compile 
+`app` (lib) due to 2 
+previous errors; 1 warning 
+emitted

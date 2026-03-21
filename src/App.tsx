@@ -3,7 +3,8 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Titlebar } from './components/Titlebar';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
+import { AppLayout } from '@/components/layout/AppLayout';
 
 
 // Pages
@@ -24,6 +25,8 @@ import CalendarPage from "./pages/Calendar";
 import Telemetry from "./pages/Telemetry";
 
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import { TelemetryProvider } from "@/contexts/TelemetryContext";
+import { useDiscordRpc } from '@/hooks/useDiscordRpc';
 
 const queryClient = new QueryClient();
 
@@ -46,6 +49,16 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function ProtectedLayout() {
+  return (
+    <ProtectedRoute>
+      <AppLayout>
+        <Outlet />
+      </AppLayout>
+    </ProtectedRoute>
+  );
+}
+
 // Auth route - redirect if already logged in
 function AuthRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -65,6 +78,11 @@ function AuthRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function GlobalHooks() {
+  useDiscordRpc();
+  return null;
+}
+
 function AppRoutes() {
   return (
     <Routes>
@@ -73,18 +91,20 @@ function AppRoutes() {
       
       {/* Protected Routes */}
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
-      <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-      <Route path="/fleet" element={<ProtectedRoute><FleetOverview /></ProtectedRoute>} />
-      <Route path="/my-stats" element={<ProtectedRoute><MyStats /></ProtectedRoute>} />
-      <Route path="/log-job" element={<ProtectedRoute><LogJob /></ProtectedRoute>} />
-      <Route path="/users" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
-      <Route path="/logs" element={<ProtectedRoute><SystemLogs /></ProtectedRoute>} />
-      <Route path="/announcements" element={<ProtectedRoute><Announcements /></ProtectedRoute>} />
-      <Route path="/events" element={<ProtectedRoute><Events /></ProtectedRoute>} />
-      <Route path="/calendar" element={<ProtectedRoute><CalendarPage /></ProtectedRoute>} />
-      <Route path="/telemetry" element={<ProtectedRoute><Telemetry /></ProtectedRoute>} />
-      <Route path="/developer" element={<ProtectedRoute><DeveloperPanel /></ProtectedRoute>} />
-      <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+      <Route element={<ProtectedLayout />}>
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/fleet" element={<FleetOverview />} />
+        <Route path="/my-stats" element={<MyStats />} />
+        <Route path="/log-job" element={<LogJob />} />
+        <Route path="/users" element={<UserManagement />} />
+        <Route path="/logs" element={<SystemLogs />} />
+        <Route path="/announcements" element={<Announcements />} />
+        <Route path="/events" element={<Events />} />
+        <Route path="/calendar" element={<CalendarPage />} />
+        <Route path="/telemetry" element={<Telemetry />} />
+        <Route path="/developer" element={<DeveloperPanel />} />
+        <Route path="/settings" element={<Settings />} />
+      </Route>
       
       {/* 404 */}
       <Route path="*" element={<NotFound />} />
@@ -105,7 +125,10 @@ const App = () => (
         <main className="flex-1 pt-10">
           <BrowserRouter>
             <AuthProvider>
-              <AppRoutes />
+              <TelemetryProvider>
+                <GlobalHooks />
+                <AppRoutes />
+              </TelemetryProvider>
             </AuthProvider>
           </BrowserRouter>
         </main>

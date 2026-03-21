@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Aura VTC Hub",
-  "version": "1.0.0-beta.1",
+  "version": "1.0.0",
   "identifier": "com.auravtc.hub",
   "build": {
     "beforeBuildCommand": "npm run build",
@@ -26,13 +26,19 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' https: data:; connect-src 'self' https://*.supabase.co https://api.truckersmp.com wss://*.supabase.co; style-src 'self' 'unsafe-inline'; font-src 'self' data:"
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["$APPLOCALDATA/**"]
+      },
+      "csp": "default-src 'self'; img-src 'self' asset: https: data:; connect-src 'self' https://*.supabase.co https://api.truckersmp.com https://discord.com https://*.discord.com wss://*.supabase.co; style-src 'self' 'unsafe-inline'; font-src 'self' data:"
     }
   },
   "bundle": {
     "active": true,
     "targets": "all",
-    "resources": ["resources/*"],
+    "resources": [
+      "resources/*"
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -41,16 +47,23 @@
       "icons/icon.ico"
     ],
     "publisher": "Aura VTC",
-    "copyright": "© 2024 Aura VTC",
+    "copyright": "© 2026 Aura VTC",
     "category": "Utility",
     "shortDescription": "Aura VTC Hub",
-    "longDescription": "Fleet management hub for Euro Truck Simulator 2 VTC"
+    "longDescription": "Fleet management hub for Euro Truck Simulator 2 VTC",
+    "windows": {
+      "nsis": {
+        "installerIcon": "icons/icon.ico",
+        "headerImage": "icons/icon.png",
+        "sidebarImage": "icons/icon.png"
+      }
+    }
   },
   "plugins": {
     "updater": {
       "active": true,
       "dialog": true,
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEVBRTkyNzVERTlBRDgyNUUKUldSZWdxM3BYU2ZwNnVLZlhscVJkRVdVa25ub2FwMWhRcDdLaDJTcEhLdE5TcUZDaVJwK2ZqakUK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEQ3NEQyRjAxOURDMDY1RDYKUldUV1pjQ2RBUzlOMS9yZ2FteWovRWJxYXJ3alMvRHUwTXA4TzZsWUlYN0tBN3RTRkhOb3c3bzkK",
       "endpoints": [
         "https://raw.githubusercontent.com/Chetan302003/Aura-Hub/refs/heads/main/updater.json"
       ]

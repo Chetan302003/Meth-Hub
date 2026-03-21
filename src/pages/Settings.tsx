@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useBrightness } from '@/hooks/useBrightness';
 import { supabase } from '@/integrations/supabase/client';
-import { AppLayout } from '@/components/layout/AppLayout';
 import { GlassCard } from '@/components/layout/GlassCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,6 +13,9 @@ import { useUIStore } from '@/stores/appStore';
 import { useAutoUpdater } from '@/hooks/useAutoUpdater';
 import { isTauri, setAlwaysOnTop, setOverlayMode } from '@/lib/tauri';
 import { PageTransition } from '@/components/transitions/PageTransition';
+import { resolveResource } from '@tauri-apps/api/path';
+import { exists, copyFile, mkdir } from '@tauri-apps/plugin-fs';
+import { open } from '@tauri-apps/plugin-dialog';
 import { 
   User, 
   Mail, 
@@ -29,7 +31,10 @@ import {
   Layers,
   Monitor,
   Cpu,
-  RefreshCw
+  RefreshCw,
+  FolderOpen,
+  Download,
+  CheckCircle
 } from 'lucide-react';
 
 export default function Settings() {
@@ -51,10 +56,54 @@ export default function Settings() {
   } = useUIStore();
 
   const [isDesktop, setIsDesktop] = useState(false);
+  const [pluginInstalled, setPluginInstalled] = useState(false);
+  const [installingPlugin, setInstallingPlugin] = useState(false);
 
   useEffect(() => {
     setIsDesktop(isTauri());
   }, []);
+
+  const handleInstallPlugin = async () => {
+    try {
+      const selected = await open({
+        directory: true,
+        multiple: false,
+        title: 'Select your ETS2 or ATS game folder (e.g. steamapps/common/Euro Truck Simulator 2)'
+      });
+
+      if (!selected) return;
+
+      setInstallingPlugin(true);
+      const gamePath = selected as string;
+      const pluginDir = `${gamePath}\\bin\\win_x64\\plugins`;
+
+      // Create plugins folder if needed
+      if (!(await exists(pluginDir))) {
+        await mkdir(pluginDir, { recursive: true });
+      }
+
+      // Resolve the bundled DLL from app resources
+      const sourceDll = await resolveResource('resources/aura_hub_telemetry.dll');
+      const destPath = `${pluginDir}\\aura_hub_telemetry.dll`;
+
+      await copyFile(sourceDll, destPath);
+
+      setPluginInstalled(true);
+      toast({
+        title: 'Telemetry Plugin Installed!',
+        description: `Plugin was copied to ${pluginDir}. Restart your game to activate it.`,
+      });
+    } catch (err) {
+      console.error('Plugin install error:', err);
+      toast({
+        variant: 'destructive',
+        title: 'Installation Failed',
+        description: String(err),
+      });
+    } finally {
+      setInstallingPlugin(false);
+    }
+  };
 
   const handleUpdateProfile = async () => {
     if (!user) return;
@@ -119,7 +168,7 @@ export default function Settings() {
   };
 
   return (
-    <AppLayout>
+    <>
       <PageTransition>
         <div className="max-w-2xl mx-auto space-y-6">
           {/* Header */}
@@ -247,6 +296,49 @@ export default function Settings() {
                     checked={overlayMode}
                     onCheckedChange={handleOverlayModeToggle}
                   />
+                </div>
+              </div>
+            </GlassCard>
+          )}
+
+          {/* Telemetry Plugin Setup */}
+          {isDesktop && (
+            <GlassCard className="transition-all duration-200 hover:border-primary/30 border-amber-500/30 bg-amber-500/5">
+              <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <Download size={20} className="text-amber-500" />
+                Telemetry Plugin Setup
+              </h3>
+
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  The telemetry plugin is required for live truck data (speed, fuel, cargo, etc.).
+                  Select your <strong>ETS2 or ATS game folder</strong> and the plugin will be automatically installed.
+                </p>
+
+                <div className="p-4 rounded-xl bg-muted/30">
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Typical path: <code>C:\Program Files (x86)\Steam\steamapps\common\Euro Truck Simulator 2</code>
+                  </p>
+
+                  {pluginInstalled ? (
+                    <div className="flex items-center gap-2 text-green-400">
+                      <CheckCircle size={18} />
+                      <span className="text-sm font-medium">Plugin installed successfully! Restart your game.</span>
+                    </div>
+                  ) : (
+                    <Button
+                      onClick={handleInstallPlugin}
+                      disabled={installingPlugin}
+                      className="gap-2 rounded-full neon-glow"
+                    >
+                      {installingPlugin ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <FolderOpen size={16} />
+                      )}
+                      {installingPlugin ? 'Installing...' : 'Select Game Folder & Install'}
+                    </Button>
+                  )}
                 </div>
               </div>
             </GlassCard>
@@ -414,6 +506,6 @@ export default function Settings() {
           </GlassCard>
         </div>
       </PageTransition>
-    </AppLayout>
+    </>
   );
 }

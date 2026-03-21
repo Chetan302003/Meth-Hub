@@ -17,6 +17,37 @@
     "core:window:allow-toggle-maximize",
     "core:window:allow-minimize",
     "core:window:allow-start-dragging",
-    "core:window:allow-set-always-on-top"
+    "core:window:allow-set-always-on-top",
+    "updater:default",
+    "updater:allow-check",
+    "http:default",
+    "http:allow-fetch-read-body",
+    {
+      "identifier": "http:allow-fetch",
+      "allow": [
+        {
+          "url": "https://*.supabase.co/**"
+        },
+        {
+          "url": "https://*.truckersmp.com/**"
+        }
+      ]
+    },
+    "sql:default",
+    "sql:allow-execute",
+    "sql:allow-select",
+    "sql:allow-load",
+    "fs:allow-applocaldata-read",
+    "fs:allow-applocaldata-write",
+    "fs:allow-applocaldata-meta",
+    "fs:allow-mkdir",
+    "fs:allow-exists",
+    "fs:allow-copy-file",
+    "fs:allow-read",
+    "fs:allow-write",
+    "fs:allow-resource-read",
+    "fs:allow-resource-meta",
+    "fs:scope-applocaldata-recursive",
+    "dialog:allow-open"
   ]
 }

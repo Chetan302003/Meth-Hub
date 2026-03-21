@@ -23,9 +23,10 @@ name = "probe"
 path = "src/bin/probe.rs"
 
 [dependencies]
-tauri = { version = "2.0", features = [] }
+tauri = { version = "2.0", features = ["protocol-asset"] }
 tauri-plugin-shell = "2.0"
 tauri-plugin-fs = "2.0"
+tauri-plugin-http = "2"
 tauri-plugin-dialog = "2.0"
 scs-sdk-telemetry = { version = "1.2.0", features = ["json"] }
 tauri-plugin-notification = "2.0"
@@ -34,3 +35,9 @@ serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 log = "0.4"
 tauri-plugin-updater = "2.10.0"
+windows = { version = "0.58", features = [
+    "Win32_Foundation",
+    "Win32_System_Memory",
+] }
+tauri-plugin-sql = { version = "2.3.2", features = ["sqlite"] }
+discord-rich-presence = "1.1.0"

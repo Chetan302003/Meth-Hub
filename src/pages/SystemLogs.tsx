@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -226,7 +225,7 @@ export default function SystemLogs() {
   };
 
   return (
-    <AppLayout>
+    <>
       <div className="flex flex-col h-[calc(100vh-6rem)] max-h-[calc(100vh-6rem)]">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 flex-shrink-0">
@@ -476,6 +475,6 @@ export default function SystemLogs() {
           </div>
         </div>
       </div>
-    </AppLayout>
+    </>
   );
 }

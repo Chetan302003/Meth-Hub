@@ -9,7 +9,7 @@ interface FleetStats {
   total_expenses: number;
   total_profit: number;
   active_drivers: number;
-  avg_load_weight: number;
+  total_load_weight: number;
 }
 
 interface LeaderboardEntry {
@@ -44,7 +44,7 @@ export function useFleetStats() {
           total_expenses: 0,
           total_profit: 0,
           active_drivers: 0,
-          avg_load_weight: 0
+          total_load_weight: 0
         });
         return;
       }
@@ -67,7 +67,7 @@ export function useFleetStats() {
           total_expenses: acc.total_expenses + totalJobExpense,
           total_profit: acc.total_profit + (income - totalJobExpense),
           active_drivers: 0, // Calculated later
-          avg_load_weight: acc.avg_load_weight + (Number(job.cargo_weight || job.cargo_mass) || 0)
+          total_load_weight: acc.total_load_weight + (Number(job.cargo_weight || job.cargo_mass) || 0)
         };
       }, {
         total_distance: 0,
@@ -77,16 +77,12 @@ export function useFleetStats() {
         total_expenses: 0,
         total_profit: 0,
         active_drivers: 0,
-        avg_load_weight: 0
+        total_load_weight: 0
       });
 
       // Drivers Count
       const activeDriversSet = new Set(rawJobs.map(j => j.user_id));
       aggregated.active_drivers = activeDriversSet.size;
-
-      if (aggregated.total_deliveries > 0) {
-        aggregated.avg_load_weight = aggregated.avg_load_weight / aggregated.total_deliveries / 1000; // Convert kg to tons
-      }
 
       setStats(aggregated);
 
@@ -143,6 +139,9 @@ export function usePersonalStats(userId: string | undefined) {
   } | null>(null);
   const [recentJobs, setRecentJobs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  const refresh = () => setRefreshTrigger(prev => prev + 1);
 
   useEffect(() => {
     if (!userId) return;
@@ -172,7 +171,7 @@ export function usePersonalStats(userId: string | undefined) {
             total_fuel,
             avg_damage
           });
-          setRecentJobs(jobs.slice(0, 10));
+          setRecentJobs(jobs.slice(0, 100));
         } else {
           setStats({
             total_distance: 0,
@@ -191,9 +190,9 @@ export function usePersonalStats(userId: string | undefined) {
     };
 
     fetchPersonalStats();
-  }, [userId]);
+  }, [userId, refreshTrigger]);
 
-  return { stats, recentJobs, loading };
+  return { stats, recentJobs, loading, refresh };
 }
 
 // Hook for fetching weekly data from actual job logs

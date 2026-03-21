@@ -1,6 +1,5 @@
 import { useAuth } from '@/hooks/useAuth';
 import { usePersonalStats } from '@/hooks/useFleetStats';
-import { AppLayout } from '@/components/layout/AppLayout';
 import { GlassCard, StatCard, MiniStat } from '@/components/layout/GlassCard';
 import { 
   MapPin, 
@@ -105,7 +104,7 @@ export default function MyStats() {
   };
 
   return (
-    <AppLayout>
+    <>
       <div className="space-y-6 lg:space-y-8">
         {/* Header */}
         <div>
@@ -251,19 +250,20 @@ export default function MyStats() {
                     <th className="text-left py-3 px-3 text-muted-foreground font-medium text-xs sm:text-sm">Date</th>
                     <th className="text-left py-3 px-3 text-muted-foreground font-medium text-xs sm:text-sm">Route</th>
                     <th className="text-left py-3 px-3 text-muted-foreground font-medium text-xs sm:text-sm hidden sm:table-cell">Cargo</th>
+                    <th className="text-right py-3 px-3 text-muted-foreground font-medium text-xs sm:text-sm">XP</th>
                     <th className="text-right py-3 px-3 text-muted-foreground font-medium text-xs sm:text-sm">Distance</th>
                     <th className="text-right py-3 px-3 text-muted-foreground font-medium text-xs sm:text-sm">Income</th>
-                    <th className="text-right py-3 px-3 text-muted-foreground font-medium text-xs sm:text-sm">Damage</th>
+                    <th className="text-center py-3 px-3 text-muted-foreground font-medium text-xs sm:text-sm">Status</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {recentJobs.slice(0, 20).map((job: any) => (
+                  {recentJobs.slice(0, 50).map((job: any) => (
                     <tr key={job.id} className="border-b border-border/30 hover:bg-secondary/30 transition-colors">
                       <td className="py-3 px-3">
                         <div className="flex items-center gap-2">
                           <Calendar size={12} className="text-muted-foreground shrink-0" />
-                          <span className="text-xs sm:text-sm">
-                            {format(new Date(job.delivery_date), 'MMM dd')}
+                          <span className="text-xs sm:text-sm whitespace-nowrap">
+                            {format(new Date(job.delivery_date), 'MMM dd, HH:mm')}
                           </span>
                         </div>
                       </td>
@@ -278,6 +278,11 @@ export default function MyStats() {
                         </span>
                       </td>
                       <td className="py-3 px-3 text-right">
+                        <span className="font-medium text-purple text-xs sm:text-sm">
+                          {job.xp_earned || 0}
+                        </span>
+                      </td>
+                      <td className="py-3 px-3 text-right">
                         <span className="font-medium text-cyan text-xs sm:text-sm">
                           {formatNumber(Number(job.distance_km))} km
                         </span>
@@ -287,11 +292,13 @@ export default function MyStats() {
                           {formatCurrency(Number(job.income))}
                         </span>
                       </td>
-                      <td className="py-3 px-3 text-right">
-                        <span className={`font-medium text-xs sm:text-sm ${
-                          Number(job.damage_percent) > 5 ? 'text-rose' : 'text-primary'
+                      <td className="py-3 px-3 text-center">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] uppercase font-bold ${
+                          job.status === 'delivered' ? 'bg-green-500/20 text-green-400' :
+                          job.status === 'cancelled' ? 'bg-rose-500/20 text-rose-400' :
+                          'bg-cyan-500/20 text-cyan-400'
                         }`}>
-                          {Number(job.damage_percent).toFixed(1)}%
+                          {job.status || 'Delivered'}
                         </span>
                       </td>
                     </tr>
@@ -357,6 +364,6 @@ export default function MyStats() {
           </GlassCard>
         </div>
       </div>
-    </AppLayout>
+    </>
   );
 }

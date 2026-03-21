@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { AppLayout } from '@/components/layout/AppLayout';
 import { GlassCard } from '@/components/layout/GlassCard';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -293,7 +292,7 @@ export default function CalendarPage() {
   };
 
   return (
-    <AppLayout>
+    <>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -625,6 +624,6 @@ export default function CalendarPage() {
           )}
         </DialogContent>
       </Dialog>
-    </AppLayout>
+    </>
   );
 }
