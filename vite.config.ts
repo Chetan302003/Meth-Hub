@@ -9,77 +9,13 @@ export default defineConfig(({ mode }) => ({
     host: "::",
     port: 8080,
   },
+  base: "./",
   build: {
     outDir: "dist",
   },
   plugins: [
     react(),
-    VitePWA({
-      registerType: "autoUpdate",
-      includeAssets: ["favicon.ico", "robots.txt"],
-      manifest: {
-        name: "Aura VTC Hub",
-        short_name: "Aura VTC",
-        description: "Virtual Trucking Company Management Hub - Track jobs, manage events, and connect with your fleet",
-        theme_color: "#00ff88",
-        background_color: "#0a0a0a",
-        display: "standalone",
-        orientation: "portrait-primary",
-        scope: "/",
-        start_url: "/",
-        icons: [
-          {
-            src: "/pwa-192x192.png",
-            sizes: "192x192",
-            type: "image/png",
-            purpose: "any"
-          },
-          {
-            src: "/pwa-512x512.png",
-            sizes: "512x512",
-            type: "image/png",
-            purpose: "any"
-          },
-          {
-            src: "/pwa-maskable-512x512.png",
-            sizes: "512x512",
-            type: "image/png",
-            purpose: "maskable"
-          }
-        ],
-        categories: ["games", "entertainment", "utilities"],
-        shortcuts: [
-          {
-            name: "Dashboard",
-            short_name: "Dashboard",
-            url: "/dashboard",
-            icons: [{ src: "/pwa-192x192.png", sizes: "192x192" }]
-          },
-          {
-            name: "Log Job",
-            short_name: "Log Job",
-            url: "/log-job",
-            icons: [{ src: "/pwa-192x192.png", sizes: "192x192" }]
-          }
-        ]
-      },
-      workbox: {
-        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/api\.truckersmp\.com\/.*/i,
-            handler: "CacheFirst",
-            options: {
-              cacheName: "tmp-api-cache",
-              expiration: {
-                maxEntries: 50,
-                maxAgeSeconds: 60 * 5 // 5 minutes
-              }
-            }
-          }
-        ]
-      }
-    })
+    // VitePWA disabled for Tauri desktop build to prevent Webview2 service worker interception crashes
   ].filter(Boolean),
   resolve: {
     alias: {

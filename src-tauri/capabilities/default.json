@@ -40,11 +40,26 @@
     "fs:allow-applocaldata-read",
     "fs:allow-applocaldata-write",
     "fs:allow-applocaldata-meta",
-    "fs:allow-mkdir",
-    "fs:allow-exists",
-    "fs:allow-copy-file",
-    "fs:allow-read",
-    "fs:allow-write",
+    {
+      "identifier": "fs:allow-mkdir",
+      "allow": [{ "path": "**" }]
+    },
+    {
+      "identifier": "fs:allow-exists",
+      "allow": [{ "path": "**" }]
+    },
+    {
+      "identifier": "fs:allow-copy-file",
+      "allow": [{ "path": "**" }]
+    },
+    {
+      "identifier": "fs:allow-read",
+      "allow": [{ "path": "**" }]
+    },
+    {
+      "identifier": "fs:allow-write",
+      "allow": [{ "path": "**" }]
+    },
     "fs:allow-resource-read",
     "fs:allow-resource-meta",
     "fs:scope-applocaldata-recursive",

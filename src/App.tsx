@@ -3,7 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Titlebar } from './components/Titlebar';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
+import { HashRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
 import { AppLayout } from '@/components/layout/AppLayout';
 
 
@@ -123,14 +123,14 @@ const App = () => (
       <div className="min-h-screen bg-aura-dark text-white flex flex-col">
         <Titlebar />
         <main className="flex-1 pt-10">
-          <BrowserRouter>
+          <HashRouter>
             <AuthProvider>
               <TelemetryProvider>
                 <GlobalHooks />
                 <AppRoutes />
               </TelemetryProvider>
             </AuthProvider>
-          </BrowserRouter>
+          </HashRouter>
         </main>
       </div>
     </TooltipProvider>
