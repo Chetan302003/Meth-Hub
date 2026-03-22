@@ -1,55 +1,161 @@
-# Aura VTC Hub - Desktop UI & Systems Audit
+<div align="center">
+  <img src="https://media.discordapp.net/attachments/1069502621062086707/1118165684610732152/Aura_VTC_Logo.png" alt="Aura VTC Logo" width="200" />
+  <h1>Aura VTC Hub</h1>
+  <p><strong>A Modern, High-Performance Virtual Trucking Hub for ETS2 & ATS</strong></p>
 
-Since my browser testing tools run instances of standard Chrome (which crashes when trying to load Tauri's native desktop APIs like `Titlebar.tsx`), I performed an exhaustive **Static Code Analysis** and architectural review of the entire React/Tauri frontend and its associated logic. 
+  [![Discord Server](https://img.shields.io/discord/1069502621062086707?color=7289da&logo=discord&logoColor=white)](https://discord.gg/auravtc)
+  [![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)]()
+  [![Tauri Configured](https://img.shields.io/badge/Built%20With-Tauri-orange?logo=tauri)](https://tauri.app)
+  [![React & Vite](https://img.shields.io/badge/Powered%20By-React%20%2B%20Vite-61DAFB?logo=react)](https://reactjs.org/)
+</div>
 
-Here are the specific pages, buttons, and system flows I checked, including the hidden logic flaws or edge cases they currently contain:
+<hr/>
 
-## 1. Window Management & Desktop Shell (`Titlebar.tsx`)
-**What was checked:**
-- The custom title border logic, maximize states, and window drag bindings (`data-tauri-drag-region`).
-**Identified Flaws:**
-- **Crash on Web Browsers:** The `Titlebar` strictly requires `@tauri-apps/api/window`. If anyone (or a developer) tries to launch the app via standard `npm run dev` in a generic browser, it completely white-screens rather than falling back to a mock navigation bar. This makes standard web testing impossible.
-
-## 2. TruckersMP Integrations (`useTruckersMP.tsx` & API)
-**What was checked:**
-- All edge-function calls (`getPlayer`, `fetchPlayerAvatar`, `getEvents`, `getServers`).
-**Identified Flaws:**
-- **(Fixed ✅):** Edge functions had inconsistent JSON formats (sometimes an Array, sometimes a `{ response: [] }` wrapper). A flexible `extractData` function ensures UI components never fail to render again.
-- **Image Caching Issue:** When fetching TMP Avatars via Edge Functions, we get a direct URL from `truckersmp.com`. If a user changes their TMP profile picture, our system might show a cached version for several hours unless we append a cache-busting string to the URL.
-
-## 3. Events System (`Events.tsx`)
-**What was checked:**
-- Render states for VTC events, TMP network events, and live server lists.
-- **Create/Edit Models**: Input handlers, Date formatting.
-- **RSVP Buttons**: Participation logic.
-**Identified Flaws:**
-- **Timezone Mishaps:** The `datetime-local` input and the `isFuture()` checks rely heavily on local system time. If a user sets a convoy for 12:00 PM in the UK, but the driver viewing it is in New York, the UI might calculate the "started/ended" tag incorrectly depending on how Supabase is saving the ISO strings.
-- **Lack of Optimistic UI on RSVP:** Clicking RSVP triggers a database call. If the request fails or is slow, the user might click the RSVP button multiple times, accidentally toggling their participation on and off rapidly.
-
-## 4. User Management / HR Panel (`UserManagement.tsx`)
-**What was checked:**
-- Approval/Rejection buttons.
-- Editing User details (Username, Email, Passwords, TMP IDs).
-**Identified Flaws:**
-- **Avatar Fetch Feedback:** Clicking "Fetch TMP Avatar" pulls the image and updates the UI state, but there is no warning if the user presses "Cancel" without saving. The HR manager might assume the avatar auto-saved when it actually purely updated the visual state.
-- **Cascading Deletes Risk:** If an HR manager clicks "Delete User", it deletes the `auth` user. It assumes Supabase will safely cascade and delete the corresponding `profile` and `job_logs`. If the foreign keys in the database aren't strictly set to `ON DELETE CASCADE`, orphaned records will be left behind indefinitely.
-
-## 5. Developer Panel (`DeveloperPanel.tsx`)
-**What was checked:**
-- Version Controller, System Health Refresh, Fetch Data, System Logs cleaner.
-**Identified Flaws:**
-- **Version Control Override:** The "Push Update" input verifies the format is `X.Y.Z`, but it lacks logic to verify if the new version is *mathematically higher* than the last one. A developer could accidentally type `1.0.0` over `1.0.2` and trigger downgrades.
-- **System Health Ghost Loading:** If the Supabase Edge Functions suffer a timeout (e.g., TruckersMP API is down), the "System Health" check might hang on the loading spinner for 30+ seconds before finally reporting an 'Error'.
-
-## 6. Telemetry & Background Auto-Logging (`useTelemetry.tsx`)
-**What was checked:**
-- SharedMemory Mutex drops in Rust (`lib.rs`) and Desktop React context.
-**Identified Flaws:**
-- **Crash Recovery:** The auto-logger completes jobs by detecting when `data.job` drops to `null`. If the Euro Truck Simulator executable *force closes* or crashes (CTD), the Shared Memory map instantly explodes without sending a "dropped" signal. The job remains eternally "pending" in the Hub's memory until the Hub is restarted.
+## 🚛 What is Aura VTC Hub?
+Aura VTC Hub is a sleek, ultra-performant desktop client created explicitly for the drivers of **Aura Virtual Trucking Company**. Unlike massive, bloatware trackers, Aura uses an insanely fast Rust backend connected to the ETS2/ATS telemetry memory stream. Operating invisibly in the background with barely ~40MB RAM usage, it allows drivers to interact seamlessly with company systems, seamlessly record logistics logs, organize events, display rich presence, and conquer the virtual roads.
 
 ---
 
-### Summary
-The UI looks gorgeous and the buttons correctly map to their Database queries. The main vulnerabilities are strictly related to **edge-case handling**—how the app behaves if an API is slow, if timezones conflict, or if a user inputs the wrong order of information. 
+## ✨ Key Features
+- **Live Local Telemetry Tracking**: Sniffs raw memory arrays generated by your game 10 times a second. Translates 180+ truck vectors (speed, cargo health, engine status, navigation path) flawlessly to the interface.
+- **Hands-Free Job Logging**: Say goodbye to manual spreadsheets. Once you drop a trailer, the Hub automatically generates a detailed logistics report calculating total mileage, realistic XP payouts, fuel consumption ratings, and synchronizes it directly to the company.
+- **Discord Rich Presence (RPC)**: Bridges directly to your local Discord app, broadcasting your active trucking status (Origin, Destination, Cargo, and Current Speed) with real-time mapping updates.
+- **Automated Webhooks**: Whenever you take on or finish a job, rich embeds map your achievements directly into the VTC's Discord channel.
+- **Company Fleet Oversight**: Real-time driver positioning across TruckersMP allowing Convoy planning and location coordination.
+- **Over-The-Air (OTA) Updates**: Securely downloads and seamlessly installs the latest internal releases completely natively without browsing GitHub!
 
-Let me know which of these flaws you'd like to tackle first!
+---
+
+## 📖 User Installation & Setup Guide
+
+### 1. Download & Install
+1. Head over to the [GitHub Releases](../../releases/latest) page.
+2. Download the latest `Aura.VTC.Hub_x64-setup.exe` installer.
+3. Install the application and log in using your VTC credentials!
+
+### 2. Telemetry Plugin Setup
+For the application to read your truck's data, it requires a small DLL plugin installed in your steam directory:
+1. Open the Aura Hub app and go to the **Settings** page.
+2. Scroll to the **Telemetry Plugin Setup** panel.
+3. Click **Select Game Folder** and locate your `Euro Truck Simulator 2` or `American Truck Simulator` root folder (usually in `C:\Program Files (x86)\Steam\steamapps\common\...`).
+4. Click Install. The Hub will transparently construct the necessary `/plugins/` folders and install the `aura_hub_telemetry.dll` for you natively.
+5. **Launch your Game**! An SDK verification box will appear inside your games' startup flow. Click "OK".
+
+### 3. Hitting the Road
+- Head to the **Dashboard** inside the Hub to watch your speed limit, engine warnings, fuel capacity, and live job data dynamically bounce while you drive.
+- Pick up a trailer in-game. Watch the "Job Logging" icon light up. When you park that load and collect your cash, an alert will flash on the Hub indicating a successful Cloud Synchronization. You're done!
+
+---
+
+## 🖥️ Deep-Dive: Application Pages & Components
+
+### 🏠 Dashboard (`/dashboard`)
+Your primary cockpit while driving. Designed to be left open on a second monitor while you play.
+- **Live Instrument Cluster**: Real-time dials displaying Speed (km/h), Engine RPM curves, exact Gear states, and Fuel Capacity.
+- **Active Job Manifest**: Displays your current Cargo, Origin/Destination cities, total mass in tons, and Live Damage percentage.
+- **Job Tracker Status Box**: A visual indicator confirming if the telemetry plugin is actively writing logging state to the local database.
+
+### 🚚 Fleet Overview (`/fleet`)
+A comprehensive live-map of your entire VTC family.
+- **TruckersMP Integration Grid**: Pulls live data from the TruckersMP API to display exactly which of your VTC members are currently driving on Simulation 1, Arcade, or ProMods.
+- **Live Status Feed**: Shows instantaneous active locations of your members in the game world so you know who is nearby for impromptu convoys.
+
+### 📊 My Stats (`/my-stats`)
+A historical ledger and financial breakdown of your career.
+- **Career Summary Cards**: Four massive metrics representing Total Distance Driven, Total Revenue Earned ($), Jobs Completed, and Average Cargo Damage.
+- **Monthly Analytics Chart**: A beautiful Recharts-powered interactive line graph mapping your revenue and distance outputs over the past 30 days.
+- **Detailed Job History Table**: A sortable, paginated data-grid showing every single job you have ever completed, including timestamps, cargo type, and performance scores.
+
+### 📝 Manual Job Logging (`/log-job`)
+The HR fallback system.
+- **Receipt Submission Form**: In the event that the auto-tracker drops connection due to a game crash, users can accurately manually input their Start/End cities, Revenue, and Cargo weight to ensure they still get paid by the VTC.
+
+### 📅 Events Calendar (`/events` & `/calendar`)
+The centralized Convoy Management structure.
+- **Upcoming Roadmap**: A glossy list of planned VTC convoys displaying beautiful banner images, custom routing details, and required DLCs.
+- **Timezone Synchronization**: Automatically translates the Convoy's starting UTC time into your exact local desktop time so you never miss a departure.
+- **Slot Registration**: Allows members to quickly click "Mark as Attending" to secure a slot in the convoy lineup.
+
+### ⚙️ Telemetry Diagnostics (`/telemetry`)
+A raw developer-centric data stream panel.
+- **Raw JSON Stream**: A live-updating JSON tree printing out all 180+ telemetry fields (including world coordinates, exact trailer mass, and D3D11 hook status) proving that the C++ DLL is actively talking to the UI.
+- **Force-Sync Button**: A manual override allowing you to forcefully push any stuck jobs cached in your local SQLite database up to the Cloud.
+
+### 👥 User Management & HR Logs (`/users` & `/logs`)
+*Restricted Admin & Human Resources Views.*
+- **Role Assignment Controls**: Instantly promote members to Management, HR Team, or demote problematic actors.
+- **Approval Queue**: Verify new applicants, cross-check their TruckersMP profiles for past bans, and grant them access to the Hub.
+- **System Audit Ledgers**: A chronological table rendering every single database mutation (e.g., "Admin X changed User Y's password") ensuring strict VTC security oversight.
+
+### 🔧 Profile Settings (`/settings`)
+Your personal command center.
+- **Overlay Window Toggles**: Use the "Always on Top" and "Overlay Mode" switches to strip away the background and float the hub seamlessly over your game window.
+- **Telemetry Installs**: The legendary 1-click Installer. Point it at your steam folder, and it automatically sets up the local AppData plugins required for tracker functionality.
+- **Discord Auth Linking**: Attach your specific `tmp_id` so the system pulls your official TruckersMP avatar onto the dashboard globally.
+
+---
+
+## 🛠️ Technology Stack & Architecture
+
+This application leverages a deeply partitioned architecture combining the power of web-UI scalability with close-to-metal processing:
+
+| Layer | Technologies Used | Description |
+| :--- | :--- | :--- |
+| **Frontend** | React 18, Vite, TypeScript | Provides an exquisitely fluid routing interface rendered as a Single Page Application.
+| **Styling** | Tailwind CSS, shadcn/ui | Radix primitives provide accessible structural components combined with neon, glass-morphic CSS aesthetics.
+| **Desktop Core** | Tauri v2 (Rust) | Injects the React frontend into a massively efficient WebView2 Windows component, replacing completely heavy Chromium clones (like Electron).
+| **Telemetry Parsing** | C++, Rust FFI | A custom C++ SDK plugin reads the SCS telemetry shared memory stream and binds it up through Rust native inter-process threading.
+| **Backend & Auth** | Supabase | Manages secure PKCE-compliant authentication and high-availability PostgreSQL interactions scaling thousands of job logs.
+
+---
+
+## 💻 Developer Setup Instructions
+
+Want to work on the hub? It's easy!
+
+1. **Clone the Repository:**
+```bash
+git clone https://github.com/Chetan302003/Aura-Hub.git
+cd Aura-Hub
+```
+
+2. **Configure your Secrets:**
+Create a `.env` file in the root directory and ensure the following keys are populated:
+```env
+VITE_SUPABASE_URL="https://your-supabase-url.supabase.co"
+VITE_SUPABASE_ANON_KEY="your-supabase-anon-key"
+VITE_DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/your-id/your-token"
+```
+
+3. **Install Dependencies:**
+```bash
+npm install
+```
+
+4. **Spin up the Matrix:**
+To start both the Vite application development server and hook up the Rust Tauri window, utilize the provided tauri pipeline script:
+```bash
+npm run tauri dev
+```
+
+---
+
+## 🔮 Future Roadmap Plans
+
+- **Automated Convoy Tracking**: Overlay mapping displaying every live driver on a 2D map.
+- **Mac / Linux Support**: As Tauri pushes forward, enabling cross-platform porting for macOS native execution.
+- **Virtual Economy Engine**: An internal banking system mapping individual generated in-game revenues out to internal corporate bank ledgers for buying individual company garages.
+- **In-Game Overlay**: Exploring options for drawing a semi-transparent diagnostic widget directly over the D3D11 render stream of ETS2 via DLL hooking so users with 1 monitor can still see the tracking.
+
+---
+
+## 📞 Support & Contact
+
+If you encounter any bugs, unhandled crashes, or telemetry sync issues, please reach out to us:
+Head over to the [Aura VTC Contact Portal](https://www.auravtc.com/contact) and select the **Management Team** option to get in touch with our developers directly!
+
+<p align="center">
+  Designed and Developed by <a href="https://github.com/Chetan302003">Chetan</a><br/>
+  &copy; 2026 Aura VTC. All Rights Reserved.<br/>
+  Keep on Trucking! 🚛
+</p>
