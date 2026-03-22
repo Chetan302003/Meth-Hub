@@ -1,11 +1,11 @@
 {
-  "version": "1.0.0",
-  "notes": "Aura VTC Hub v1.0.0 - First stable release",
+  "version": "1.0.1",
+  "notes": "Aura VTC Hub v1.0.1 - Fix avatar loading in sidebar ",
   "pub_date": "2026-03-22T00:00:00Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUV1pjQ2RBUzlOMTdrYmZkMnlPY2xZQ3E4QzFkclhYOGxjYU5sZUJFS201UjZKaWlGQU5nbnFNMk1md0Q1NHRHb2ZCRTZmV1JETUNwVXhCNTFYODBmRTBRS1prSngvNWdjPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc0MTIyNzg4CWZpbGU6QXVyYSBWVEMgSHViXzEuMC4wX3g2NC1zZXR1cC5leGUKNGtOQUlDZER1OGh2cjFiUXNQRzgyTks4MVVuUWsyUnpQbWVnMGFQWlB5Y0lpajU5VmQrZHZVaWZBUTVKLzZsZUg1bDEvd1Y3Q2ZxQm9vWThiMWlIQ3c9PQo=",
-      "url": "https://github.com/Chetan302003/Aura-Hub/releases/download/v1.0.0/Aura.VTC.Hub_1.0.0_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUV1pjQ2RBUzlOMXp0Q2FMSkdxUjFaVU11Q1VRdXVScm5xSFVseVBxZzRMYVMrdk5Kb3FmSXZ4OWtIY0gwaWhoVWhqVHZobXlGMThFWEpjV2JqNVE1Z1dyVHdrYnFZVUFNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc0MjA1NzMzCWZpbGU6QXVyYSBWVEMgSHViXzEuMC4xX3g2NC1zZXR1cC5leGUKaDV4WjFCNTNuYVFNdWVmdDdPc1hlQTFnaldwOUJGNktjdjQxS3M2dXJUSHRjWEpta0EzYWdaUUM4RHVTNWdHTHpsM0gzc05FQmJIdHhNalFVcmZ5RHc9PQo=",
+      "url": "https://github.com/Chetan302003/Aura-Hub/releases/download/v1.0.1/Aura.VTC.Hub_1.0.0_x64-setup.exe"
     }
   }
 }
