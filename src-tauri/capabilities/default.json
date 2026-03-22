@@ -25,12 +25,10 @@
     {
       "identifier": "http:allow-fetch",
       "allow": [
-        {
-          "url": "https://*.supabase.co/**"
-        },
-        {
-          "url": "https://*.truckersmp.com/**"
-        }
+        { "url": "https://*.supabase.co/**" },
+        { "url": "https://*.truckersmp.com/**" },
+        { "url": "https://**" },
+        { "url": "http://**" }
       ]
     },
     "sql:default",

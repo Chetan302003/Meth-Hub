@@ -41,7 +41,7 @@ For the application to read your truck's data, it requires a small DLL plugin in
 3. Click **Select Game Folder** and locate your `Euro Truck Simulator 2` or `American Truck Simulator` root folder (usually in `C:\Program Files (x86)\Steam\steamapps\common\...`).
 4. Click Install. The Hub will transparently construct the necessary `/plugins/` folders and install the `aura_hub_telemetry.dll` for you natively.
 5. **Launch your Game**! An SDK verification box will appear inside your games' startup flow. Click "OK".
-
+6. If 
 ### 3. Hitting the Road
 - Head to the **Dashboard** inside the Hub to watch your speed limit, engine warnings, fuel capacity, and live job data dynamically bounce while you drive.
 - Pick up a trailer in-game. Watch the "Job Logging" icon light up. When you park that load and collect your cash, an alert will flash on the Hub indicating a successful Cloud Synchronization. You're done!
@@ -55,11 +55,25 @@ Your primary cockpit while driving. Designed to be left open on a second monitor
 - **Live Instrument Cluster**: Real-time dials displaying Speed (km/h), Engine RPM curves, exact Gear states, and Fuel Capacity.
 - **Active Job Manifest**: Displays your current Cargo, Origin/Destination cities, total mass in tons, and Live Damage percentage.
 - **Job Tracker Status Box**: A visual indicator confirming if the telemetry plugin is actively writing logging state to the local database.
+- **Featured Events Carousel**: Dynamically pulls upcoming VTC convoys from the `events` table and renders them in a horizontal scrollable Banner.
+
+> **Data Sources:**
+> - 🔌 **Live Telemetry** — C++ DLL → Rust FFI → React Context (no database, real-time memory stream)
+> - 🗄️ **`job_logs`** table — Aggregated fleet-wide stats (total distance, revenue, deliveries)
+> - 🗄️ **`events`** table — Upcoming convoy/event banners
+> - 🗄️ **`profiles`** table — Logged-in user's avatar, username, and role
 
 ### 🚚 Fleet Overview (`/fleet`)
 A comprehensive live-map of your entire VTC family.
 - **TruckersMP Integration Grid**: Pulls live data from the TruckersMP API to display exactly which of your VTC members are currently driving on Simulation 1, Arcade, or ProMods.
 - **Live Status Feed**: Shows instantaneous active locations of your members in the game world so you know who is nearby for impromptu convoys.
+- **Company Leaderboard**: A ranked list of drivers sorted by total distance, deliveries, and earnings — powered by aggregating every driver's `job_logs`.
+- **Fleet Analytics Charts**: Interactive area/bar/pie charts visualizing company-wide revenue streams, cargo weight distributions, and monthly performance.
+
+> **Data Sources:**
+> - 🗄️ **`job_logs`** table — All drivers' completed jobs aggregated into company-wide statistics and leaderboard rankings
+> - 🗄️ **`profiles`** table — Driver usernames and avatars for the leaderboard display
+> - 🌐 **TruckersMP REST API** — Live online player status fetched via native Tauri HTTP (`useTruckersMP` hook)
 
 ### 📊 My Stats (`/my-stats`)
 A historical ledger and financial breakdown of your career.
@@ -107,6 +121,22 @@ This application leverages a deeply partitioned architecture combining the power
 | **Desktop Core** | Tauri v2 (Rust) | Injects the React frontend into a massively efficient WebView2 Windows component, replacing completely heavy Chromium clones (like Electron).
 | **Telemetry Parsing** | C++, Rust FFI | A custom C++ SDK plugin reads the SCS telemetry shared memory stream and binds it up through Rust native inter-process threading.
 | **Backend & Auth** | Supabase | Manages secure PKCE-compliant authentication and high-availability PostgreSQL interactions scaling thousands of job logs.
+
+### 🔐 Role-Based Access Control & Database Security
+Aura VTC Hub uses strict Supabase **Row Level Security (RLS)** to enforce absolute data protection. Every request is verified contextually via injected Web Tokens.
+
+1. **CEO (Admin)**
+   - **UI Access**: Unlimited access across all panels.
+   - **Database**: Hardcoded `TRUE` RLS override. Can read/write/delete any table row universally, allowing them to demote staff, alter massive historical data chains, and manage the core configuration arrays.
+2. **Management Team**
+   - **UI Access**: Unlocked access to the `Users` and developer `Logs` tabs.
+   - **Database**: Granted elevated `SELECT`/`UPDATE` capabilities over the `profiles` table to manage VTC rosters. Allowed to create, edit, or delete upcoming Convoy details from the `events` table seamlessly.
+3. **HR Team**
+   - **UI Access**: Specifically scoped to handle the `Users` intake pipeline.
+   - **Database**: Can intercept new user registrations, modify `approval_status` keys, and audit developer logs. Blocked by database firewalls from modifying core Convoy configurations or system architectures.
+4. **Driver (Default)**
+   - **UI Access**: Fully restricted from peering into the `Users`, `Logs`, and `Developer` panels.
+   - **Database**: RLS completely locks `profiles` and `job_logs` to `user_id = auth.uid()`. Drivers can read and write *only* their own personal logs and data. They can read public `events` but cannot edit them.
 
 ---
 
