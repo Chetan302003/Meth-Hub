@@ -31,7 +31,8 @@ Aura VTC Hub is a sleek, ultra-performant desktop client created explicitly for 
 ### 1. Download & Install
 1. Head over to the [GitHub Releases](../../releases/latest) page.
 2. Download the latest `Aura.VTC.Hub_x64-setup.exe` installer.
-3. Install the application and log in using your VTC credentials!
+3. Start the installation. **⚠️ Note:** Windows SmartScreen may flag the app as "unrecognized" or "harmful" because it is an independent, non-certified download. This is completely normal for new VTC hubs. Click **More Info** ➔ **Run Anyway** to bypass the warning.
+4. Launch the application and log in using your VTC credentials!
 
 ### 2. Telemetry Plugin Setup
 For the application to read your truck's data, it requires a small DLL plugin installed in your steam directory:
