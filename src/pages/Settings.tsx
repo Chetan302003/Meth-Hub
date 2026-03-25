@@ -14,6 +14,7 @@ import { useAutoUpdater } from '@/hooks/useAutoUpdater';
 import { isTauri, setAlwaysOnTop, setOverlayMode } from '@/lib/tauri';
 import { PageTransition } from '@/components/transitions/PageTransition';
 import { resolveResource } from '@tauri-apps/api/path';
+import { getVersion } from '@tauri-apps/api/app';
 import { exists, copyFile, mkdir } from '@tauri-apps/plugin-fs';
 import { open } from '@tauri-apps/plugin-dialog';
 import { 
@@ -58,9 +59,14 @@ export default function Settings() {
   const [isDesktop, setIsDesktop] = useState(false);
   const [pluginInstalled, setPluginInstalled] = useState(false);
   const [installingPlugin, setInstallingPlugin] = useState(false);
+  const [appVersion, setAppVersion] = useState<string>('');
 
   useEffect(() => {
     setIsDesktop(isTauri());
+    
+    if (isTauri()) {
+      getVersion().then(setAppVersion);
+    }
   }, []);
 
   const handleInstallPlugin = async () => {
@@ -355,8 +361,8 @@ export default function Settings() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between p-4 rounded-xl bg-muted/30">
                   <div className="flex-1 min-w-0 mr-4">
-                    <p className="font-medium text-sm">App Version</p>
-                    <p className="text-xs text-muted-foreground">Check for the latest features</p>
+                    <p className="font-medium text-sm">App Version: <span className="text-primary font-mono">{appVersion || '...'}</span></p>
+                    <p className="text-xs text-muted-foreground">Stay up to date with the latest features</p>
                   </div>
                   <Button 
                     variant="outline" 

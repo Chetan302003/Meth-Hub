@@ -211,14 +211,14 @@ export default function Auth() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4 relative overflow-hidden">
+    <div className="h-[calc(100vh-2.5rem)] flex flex-col bg-background relative overflow-y-auto overflow-x-hidden [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
       {/* Background effects */}
-      <div className="absolute inset-0 overflow-hidden">
+      <div className="fixed inset-0 pointer-events-none">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl" />
         <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-accent/10 rounded-full blur-3xl" />
       </div>
 
-      <div className="w-full max-w-md relative z-10">
+      <div className="w-full max-w-md my-auto mx-auto relative z-10 py-12 px-4">
         {/* Logo - Replace with your Aura logo */}
         <div className="text-center mb-8">
           {/* ===== AURA LOGO PLACEHOLDER ===== */}

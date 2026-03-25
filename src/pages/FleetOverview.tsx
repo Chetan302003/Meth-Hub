@@ -248,7 +248,7 @@ export default function FleetOverview() {
                   </Pie>
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: 'hsl(0, 0%, 8%)',
+                      backgroundColor: 'hsla(193, 90%, 54%, 1.00)',
                       border: '1px solid hsl(150, 30%, 20%)',
                       borderRadius: '8px'
                     }}

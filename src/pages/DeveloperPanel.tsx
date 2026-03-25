@@ -552,21 +552,6 @@ export default function DeveloperPanel() {
           )}
         </GlassCard>
 
-        {/* Logs Auto-Delete Info */}
-        <GlassCard>
-          <div className="flex items-center gap-4">
-            <div className="p-3 rounded-full bg-warning/20 text-warning">
-              <Clock size={24} />
-            </div>
-            <div>
-              <h3 className="font-semibold">Automatic Log Cleanup</h3>
-              <p className="text-sm text-muted-foreground">
-                System logs older than 2 days are automatically deleted to keep the database lean.
-                You can manually trigger cleanup using the "Clean old logs" button above.
-              </p>
-            </div>
-          </div>
-        </GlassCard>
       </div>
     </>
   );

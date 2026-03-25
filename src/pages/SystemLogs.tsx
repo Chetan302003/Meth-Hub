@@ -236,7 +236,7 @@ export default function SystemLogs() {
             <div>
               <h1 className="text-2xl font-bold text-foreground">System Logs</h1>
               <p className="text-sm text-muted-foreground">
-                {filteredLogs.length} entries • Auto-deleted after 48h
+                {filteredLogs.length} entries • Developer Manual Deletion Only
               </p>
             </div>
           </div>

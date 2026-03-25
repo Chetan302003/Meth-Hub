@@ -6,12 +6,12 @@ import { useLocalDb } from '@/hooks/useLocalDb';
 import { GlassCard, StatCard, MiniStat } from '@/components/layout/GlassCard';
 import { FeaturedEventsCarousel } from '@/components/events/FeaturedEventsCarousel';
 import { supabase } from '@/integrations/supabase/client';
-import { 
-  Truck, 
-  MapPin, 
-  Fuel, 
-  DollarSign, 
-  Users, 
+import {
+  Truck,
+  MapPin,
+  Fuel,
+  DollarSign,
+  Users,
   TrendingUp,
   Trophy,
   Package,
@@ -20,13 +20,13 @@ import {
   Gauge,
   Route
 } from 'lucide-react';
-import { 
-  AreaChart, 
-  Area, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
   ResponsiveContainer,
   BarChart,
   Bar,
@@ -70,7 +70,18 @@ export default function Dashboard() {
   const { stats: personalStats, loading: personalLoading } = usePersonalStats(user?.id);
   const { weeklyData, loading: weeklyLoading } = useWeeklyData();
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-  
+  const [expandedAnnouncements, setExpandedAnnouncements] = useState<Set<string>>(new Set());
+
+  const toggleAnnouncement = (id: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    setExpandedAnnouncements(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   useEventReminders();
 
   useEffect(() => {
@@ -81,7 +92,7 @@ export default function Dashboard() {
         .eq('is_active', true)
         .order('created_at', { ascending: false })
         .limit(3);
-      
+
       if (data) setAnnouncements(data as Announcement[]);
     };
     fetchAnnouncements();
@@ -171,16 +182,15 @@ export default function Dashboard() {
         {announcements.length > 0 && (
           <div className="space-y-3">
             {announcements.map((announcement) => (
-              <GlassCard 
-                key={announcement.id} 
+              <GlassCard
+                key={announcement.id}
                 className={priorityColors[announcement.priority]}
               >
                 <div className="flex items-start gap-3 sm:gap-4">
-                  <div className={`p-2 rounded-xl shrink-0 ${
-                    announcement.priority === 'urgent' ? 'icon-bg-rose' :
-                    announcement.priority === 'high' ? 'icon-bg-amber' :
-                    'icon-bg-green'
-                  }`}>
+                  <div className={`p-2 rounded-xl shrink-0 ${announcement.priority === 'urgent' ? 'icon-bg-rose' :
+                      announcement.priority === 'high' ? 'icon-bg-amber' :
+                        'icon-bg-green'
+                    }`}>
                     <Megaphone size={18} />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -192,7 +202,18 @@ export default function Dashboard() {
                         </span>
                       )}
                     </div>
-                    <p className="text-muted-foreground text-sm mt-1 line-clamp-2">{announcement.content}</p>
+                    <p className={`text-muted-foreground text-sm mt-1 whitespace-pre-wrap ${expandedAnnouncements.has(announcement.id) ? '' : 'line-clamp-2'}`}>
+                      {announcement.content}
+                    </p>
+                    {announcement.content.length > 120 && (
+                      <button
+                        onClick={(e) => toggleAnnouncement(announcement.id, e)}
+                        className="text-xs font-semibold mt-1 transition-opacity hover:opacity-80"
+                        style={{ color: '#7DF9FF' }}
+                      >
+                        {expandedAnnouncements.has(announcement.id) ? 'Show less' : 'Show more...'}
+                      </button>
+                    )}
                     <p className="text-xs text-muted-foreground mt-2">
                       {format(new Date(announcement.created_at), 'MMM dd, yyyy')}
                     </p>
@@ -272,26 +293,26 @@ export default function Dashboard() {
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 15%, 15%)" />
-                  <XAxis 
-                    dataKey="day" 
-                    stroke="hsl(220, 10%, 45%)" 
+                  <XAxis
+                    dataKey="day"
+                    stroke="hsl(220, 10%, 45%)"
                     fontSize={11}
                     tickLine={false}
                   />
-                  <YAxis 
-                    stroke="hsl(220, 10%, 45%)" 
+                  <YAxis
+                    stroke="hsl(220, 10%, 45%)"
                     fontSize={11}
                     tickLine={false}
                     axisLine={false}
                   />
                   <Tooltip content={<CustomTooltip />} />
-                  <Area 
-                    type="monotone" 
+                  <Area
+                    type="monotone"
                     dataKey="distance"
-                    name="distance" 
+                    name="distance"
                     stroke={CHART_COLORS.green}
                     strokeWidth={2.5}
-                    fill="url(#distanceGradient)" 
+                    fill="url(#distanceGradient)"
                   />
                 </AreaChart>
               </ResponsiveContainer>
@@ -314,23 +335,23 @@ export default function Dashboard() {
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 15%, 15%)" />
-                  <XAxis 
-                    dataKey="day" 
-                    stroke="hsl(220, 10%, 45%)" 
+                  <XAxis
+                    dataKey="day"
+                    stroke="hsl(220, 10%, 45%)"
                     fontSize={11}
                     tickLine={false}
                   />
-                  <YAxis 
-                    stroke="hsl(220, 10%, 45%)" 
+                  <YAxis
+                    stroke="hsl(220, 10%, 45%)"
                     fontSize={11}
                     tickLine={false}
                     axisLine={false}
                   />
                   <Tooltip content={<CustomTooltip />} />
-                  <Bar 
+                  <Bar
                     dataKey="income"
-                    name="income" 
-                    fill="url(#incomeGradient)" 
+                    name="income"
+                    fill="url(#incomeGradient)"
                     radius={[6, 6, 0, 0]}
                   />
                 </BarChart>
@@ -386,23 +407,22 @@ export default function Dashboard() {
                 <p className="text-muted-foreground text-center py-8 text-sm">No data yet. Start logging jobs!</p>
               ) : (
                 leaderboard.map((driver, index) => (
-                  <div 
+                  <div
                     key={driver.user_id}
                     className="flex items-center gap-3 p-2.5 sm:p-3 rounded-xl bg-secondary/50 hover:bg-secondary/70 transition-colors"
                   >
-                    <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center font-bold text-xs sm:text-sm shrink-0 ${
-                      index === 0 ? 'bg-amber/20 text-amber' :
-                      index === 1 ? 'bg-gray-400/20 text-gray-400' :
-                      index === 2 ? 'bg-orange-500/20 text-orange-400' :
-                      'bg-muted text-muted-foreground'
-                    }`}>
+                    <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center font-bold text-xs sm:text-sm shrink-0 ${index === 0 ? 'bg-amber/20 text-amber' :
+                        index === 1 ? 'bg-gray-400/20 text-gray-400' :
+                          index === 2 ? 'bg-orange-500/20 text-orange-400' :
+                            'bg-muted text-muted-foreground'
+                      }`}>
                       {index + 1}
                     </div>
-                    
+
                     <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-semibold overflow-hidden shrink-0">
                       {driver.avatar_url ? (
-                        <img 
-                          src={driver.avatar_url} 
+                        <img
+                          src={driver.avatar_url}
                           alt={driver.username}
                           className="w-full h-full object-cover"
                         />
@@ -410,14 +430,14 @@ export default function Dashboard() {
                         driver.username?.charAt(0).toUpperCase() || '?'
                       )}
                     </div>
-                    
+
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm truncate">{driver.username}</p>
                       <p className="text-xs text-muted-foreground">
                         {driver.total_deliveries} deliveries
                       </p>
                     </div>
-                    
+
                     <div className="text-right shrink-0">
                       <p className="font-bold text-primary text-sm">{formatNumber(Number(driver.total_distance))} km</p>
                       <p className="text-xs text-muted-foreground">{formatCurrency(Number(driver.total_earnings))}</p>
