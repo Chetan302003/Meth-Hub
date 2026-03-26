@@ -4,6 +4,8 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { useTruckersMP } from '@/hooks/useTruckersMP';
 import { useAutoUpdater } from '@/hooks/useAutoUpdater';
+import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { useBroadcastListener } from '@/hooks/useBroadcastListener';
 import { Button } from '@/components/ui/button';
 import {
   LayoutDashboard,
@@ -53,6 +55,12 @@ export function AppLayout({ children }: AppLayoutProps) {
 
   // Initialize the auto-updater to check for Tauri OTA updates on launch
   useAutoUpdater();
+
+  // Initialize push notifications for event reminders (30/15/5/1 min alerts)
+  usePushNotifications();
+
+  // Listen for staff-broadcast notifications via Supabase Realtime
+  useBroadcastListener();
 
   // Close sidebar on route change (mobile)
   useEffect(() => {

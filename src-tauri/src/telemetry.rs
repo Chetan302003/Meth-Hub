@@ -470,6 +470,7 @@ pub struct EventSummary {
     pub toll_count: u32,
     pub fuel_count: u32,
     pub repair_count: u32,
+    pub job_event: u8,
 }
 
 fn read_cstr(bytes: &[u8]) -> String {
@@ -658,6 +659,7 @@ pub fn get_telemetry_data() -> Result<TelemetryData, String> {
                 toll_count: raw.event_toll_count,
                 fuel_count: raw.event_fuel_count,
                 repair_count: raw.event_repair_count,
+                job_event: raw.job_event,
             },
         })
     }

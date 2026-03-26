@@ -121,6 +121,7 @@ export interface TelemetryData {
     fineAmount: number;
     toll: number;
     tollAmount: number;
+    jobEvent: number; // Added: 0=none, 1=delivered, 2=cancelled
     ferryAmount: number;
     trainAmount: number;
     fuelAmount: number; // Added
@@ -148,7 +149,7 @@ const defaultTelemetry: TelemetryData = {
   },
   trailer: [],
   job: null,
-  events: { delivered: 0, cancelled: 0, fined: 0, fineAmount: 0, toll: 0, tollAmount: 0, ferryAmount: 0, trainAmount: 0, fuelAmount: 0, repairAmount: 0 },
+  events: { delivered: 0, cancelled: 0, fined: 0, fineAmount: 0, toll: 0, tollAmount: 0, jobEvent: 0, ferryAmount: 0, trainAmount: 0, fuelAmount: 0, repairAmount: 0 },
   timestamp: 0,
 };
 
@@ -267,6 +268,7 @@ export function useTelemetry() {
           fineAmount: rawObj.events?.fineAmount || 0,
           toll: rawObj.events?.tollCount || 0,
           tollAmount: rawObj.events?.tollAmount || 0,
+          jobEvent: rawObj.events?.jobEvent || 0,
           ferryAmount: rawObj.events?.ferryAmount || 0,
           trainAmount: rawObj.events?.trainAmount || 0,
           fuelAmount: rawObj.events?.fuelAmount || 0,
@@ -422,17 +424,42 @@ export function useAutoJobLogger() {
       }
     }
 
-    // END: Job finished (Verified natively by Game Engine Events)
-    if (pendingJob && startEvents) {
+    // END: Job finished — detect by two reliable signals:
+    // 1. DELIVERED: jobFinishedCount increments (game engine confirms delivery)
+    // 2. CANCELLED: The tracked job disappears (isJobActive goes false OR cargo changes)
+    //    WITHOUT jobFinishedCount incrementing
+    if (pendingJob && startEvents && !isLogging) {
       const deliveredInc = (data.events.delivered || 0) > startEvents.delivered;
-      const cancelledInc = (data.events.cancelled || 0) > startEvents.cancelled;
-
-      if ((deliveredInc || cancelledInc) && !isLogging) {
-        console.log(` Titan Omega: Engine Job Completion Signal Detected. (${deliveredInc ? 'Delivered' : 'Cancelled'})`);
+      
+      // Job disappeared: was active, now it's not (or cargo changed away from our tracked one)
+      const jobDisappeared = !isJobActive && pendingJob.cargoId;
+      const cargoSwapped = isJobActive && data.job && data.job.cargoId !== pendingJob.cargoId;
+      
+      if (deliveredInc) {
+        // Genuine delivery confirmed by game engine
+        console.log(' Titan Omega: Engine Job Completion Signal Detected. (Delivered)');
         setIsLogging(true);
-        setFinalStatusOverride(deliveredInc ? 'delivered' : 'cancelled');
+        setFinalStatusOverride('delivered');
 
-        // Auto-reset after 5 seconds to be ready for next job
+        const timer = setTimeout(() => {
+          setIsLogging(false);
+          setStartOdometer(null);
+          setStartFuel(null);
+          setAccumulatedFuel(0);
+          setPrevFuelTrack(null);
+          setPendingJob(null);
+          setJobId(null);
+          setStartEvents(null);
+          setJobStartedAt(null);
+          setFinalStatusOverride(null);
+        }, 5000);
+        return () => clearTimeout(timer);
+      } else if (jobDisappeared || cargoSwapped) {
+        // Job vanished without a delivery increment = CANCELLED
+        console.log(' Titan Omega: Job Disappearance Detected WITHOUT delivery. (Cancelled)');
+        setIsLogging(true);
+        setFinalStatusOverride('cancelled');
+
         const timer = setTimeout(() => {
           setIsLogging(false);
           setStartOdometer(null);
@@ -448,7 +475,7 @@ export function useAutoJobLogger() {
         return () => clearTimeout(timer);
       }
     }
-  }, [isJobActive, data.truck.dash.odometer, data.job, pendingJob, data.job?.cargoId, data.truck.brand, data.truck.name, startOdometer, jobId, data.truck.dash.fuel, data.events, startExpenses, startEvents, isLogging]);
+  }, [isJobActive, data.truck.dash.odometer, data.truck.navigation.distance, data.job, pendingJob, data.job?.cargoId, data.truck.brand, data.truck.name, startOdometer, jobId, data.truck.dash.fuel, data.events, startExpenses, startEvents, isLogging]);
 
   const prepareJobData = useCallback(() => {
     // For terminal state (cancelled/delivered), we must look at data.job for final outcome (penalty/xp/event)
@@ -465,9 +492,8 @@ export function useAutoJobLogger() {
     }
 
     // Status Logic
-    const isCancelled = job.cargoEvent === 2 || data.job?.cargoEvent === 2;
-    const finalStatusFallback = isCancelled ? 'cancelled' : (!isJobActive && job.cargoId ? 'delivered' : 'active');
-    const finalStatus = finalStatusOverride || finalStatusFallback;
+    const isCancelled = job.cargoEvent === 2 || data.events.jobEvent === 2 || finalStatusOverride === 'cancelled';
+    const finalStatus = isCancelled ? 'cancelled' : (finalStatusOverride || 'delivered');
 
     // Use the continuous live fuel accumulator so refueling doesn't reset it
     const fuelConsumed = accumulatedFuel;
@@ -479,30 +505,64 @@ export function useAutoJobLogger() {
     const repairsDelta = Math.max(0, (data.events.repairAmount || 0) - (startExpenses?.repairs || 0));
     const totalExpenses = finesDelta + tollsDelta + repairsDelta;
 
-    // Fallback for planned distance: if config is 0, use our sticky initial value
-    const plannedKm = job.plannedDistance > 0 ? job.plannedDistance : stickyPlannedDistance;
+    // Fallback chain for planned distance: SCS config > sticky value > live GPS
+    let plannedKm = job.plannedDistance > 0 ? job.plannedDistance : stickyPlannedDistance;
+    if (plannedKm === 0 && data.truck.navigation.distance > 0) {
+      plannedKm = data.truck.navigation.distance / 1000;
+    }
+    // Also try pendingJob's original planned distance
+    if (plannedKm === 0 && pendingJob?.plannedDistance && pendingJob.plannedDistance > 0) {
+      plannedKm = pendingJob.plannedDistance;
+    }
 
     const damagePercent = data.job?.progress || job.progress || 0;
+    const durationSeconds = jobStartedAt ? Math.round((Date.now() - new Date(jobStartedAt).getTime()) / 1000) : 0;
 
-    // Manual XP Calculation Fallback
+    // Cancelled jobs: zero out all financial/performance stats
+    if (isCancelled) {
+      return {
+        job_id: jobId || crypto.randomUUID(),
+        origin_city: pendingJob?.source || job.source,
+        destination_city: pendingJob?.destination || job.destination,
+        planned_distance_km: Math.round(plannedKm),
+        distance_km: 0,
+        cargo_type: job.cargo,
+        cargo_weight: Math.round(job.cargoMass / 1000),
+        fuel_consumed: 0,
+        avg_fuel_consumption: 0,
+        income: 0,
+        revenue: 0,
+        xp_earned: 0,
+        expenses: 0,
+        fine_amount: 0,
+        damage_percent: 0,
+        truck_name: `${data.truck.brand} ${data.truck.name}`,
+        truck_id: data.truck.brand,
+        trailer_id: data.trailer[0]?.id || 'none',
+        status: 'cancelled',
+        auto_park: job.autoPark || false,
+        auto_load: job.autoLoad || false,
+        job_market: job.market || 'freight',
+        mp_time_offset: data.game.mpTimeOffset || 0,
+        is_special_transport: job.isSpecial || false,
+        delivery_date: new Date().toISOString(),
+        started_at: jobStartedAt || new Date().toISOString(),
+        duration_seconds: durationSeconds,
+      };
+    }
+
+    // Manual XP Calculation Fallback (delivered jobs only)
     let calculatedXp = Math.round(job.xp || 0);
     if (calculatedXp === 0 && driven > 0) {
       const baseDistanceXp = driven;
       const specialBonus = job.isSpecial ? driven * 0.2 : 0;
-      const parkingBonus = (!job.autoPark && !isCancelled) ? 45 : 0;
+      const parkingBonus = !job.autoPark ? 45 : 0;
       let rawCalculate = baseDistanceXp + specialBonus + parkingBonus;
-
-      // Cancelled jobs only get 50% distance credit and NO parking bonus
-      if (isCancelled) {
-        rawCalculate = baseDistanceXp * 0.5;
-      }
 
       // Damage penalty: -5 XP per 1% of damage, capped to never go below 10 XP
       const damagePenalty = damagePercent * 5;
       calculatedXp = Math.max(Math.round(rawCalculate - damagePenalty), 10);
     }
-
-    const durationSeconds = jobStartedAt ? Math.round((Date.now() - new Date(jobStartedAt).getTime()) / 1000) : 0;
 
     let fuelEconomy = data.truck.dash.avgFuelConsumption || 0;
     if (fuelEconomy === 0 && fuelConsumed > 0 && driven > 0) {

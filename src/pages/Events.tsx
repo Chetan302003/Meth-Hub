@@ -36,8 +36,7 @@ import {
   BellRing,
   Send
 } from 'lucide-react';
-import { isTauri } from '@tauri-apps/api/core';
-import { sendNotification } from '@tauri-apps/plugin-notification';
+import { isTauri, sendNativeNotification } from '@/lib/tauri';
 
 interface VTCEvent {
   id: string;
@@ -64,7 +63,7 @@ interface VTCEvent {
 }
 
 export default function Events() {
-  const { user, isStaff } = useAuth();
+  const { user, profile, isStaff } = useAuth();
   const { getEvents, getVTCEvents, getServers, loading: tmpLoading } = useTruckersMP();
 
   const [activeTab, setActiveTab] = useState('vtc');
@@ -468,6 +467,7 @@ export default function Events() {
                       key={event.id}
                       event={event}
                       isStaff={isStaff}
+                      profile={profile}
                       onEdit={openEditDialog}
                       onDelete={handleDeleteEvent}
                       onRSVP={handleRSVP}
@@ -492,6 +492,7 @@ export default function Events() {
                       key={event.id}
                       event={event}
                       isStaff={isStaff}
+                      profile={profile}
                       onEdit={openEditDialog}
                       onDelete={handleDeleteEvent}
                       onRSVP={handleRSVP}
@@ -757,6 +758,7 @@ function EventForm({
 function VTCEventCard({
   event,
   isStaff,
+  profile,
   onEdit,
   onDelete,
   onRSVP,
@@ -766,6 +768,7 @@ function VTCEventCard({
 }: {
   event: VTCEvent;
   isStaff: boolean;
+  profile: any;
   onEdit: (event: VTCEvent) => void;
   onDelete: (id: string) => void;
   onRSVP: (id: string, isParticipating: boolean) => void;
@@ -809,15 +812,11 @@ function VTCEventCard({
                 size="icon"
                 title="Set Local Reminder"
                 onClick={async () => {
-                  if (isTauri()) {
-                    sendNotification({
-                      title: `Reminder: ${event.title}`,
-                      body: `Event starts ${formatDistanceToNow(parseISO(event.start_time), { addSuffix: true })}`
-                    });
-                    toast.success("Desktop reminder set!");
-                  } else {
-                    toast.error("Reminders only work in the Desktop App");
-                  }
+                  await sendNativeNotification(
+                    `Reminder: ${event.title}`,
+                    `Event starts ${formatDistanceToNow(parseISO(event.start_time), { addSuffix: true })}`
+                  );
+                  toast.success("Desktop reminder set!");
                 }}
               >
                 <BellRing size={16} className="text-muted-foreground hover:text-primary transition-colors" />
@@ -829,14 +828,24 @@ function VTCEventCard({
                     size="icon"
                     title="Push Notification to App Users"
                     onClick={async () => {
-                      if (isTauri()) {
-                        // In a full production app, you would send a Supabase broadcast here.
-                        // For now, demo the local emit
-                        sendNotification({
-                          title: `Aura VTC: ${event.title}`,
-                          body: `Staff has announced an event! Check the calendar.`
+                      try {
+                        const channel = supabase.channel('aura-broadcasts');
+                        await channel.subscribe();
+                        await channel.send({
+                          type: 'broadcast',
+                          event: 'event-alert',
+                          payload: {
+                            title: `🚛 Aura VTC: ${event.title}`,
+                            body: `${event.departure_city} → ${event.arrival_city} — ${format(parseISO(event.start_time), 'MMM dd, HH:mm')}`,
+                            url: '/events',
+                            sentBy: profile?.username || 'Staff',
+                          },
                         });
-                        toast.success("Push notification sent to all online drivers!");
+                        supabase.removeChannel(channel);
+                        toast.success('Notification broadcasted to all online drivers!');
+                      } catch (err) {
+                        console.error('Broadcast error:', err);
+                        toast.error('Failed to send broadcast');
                       }
                     }}
                   >

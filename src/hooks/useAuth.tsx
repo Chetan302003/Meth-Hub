@@ -167,7 +167,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const hasRole = (role: AppRole) => roles.includes(role);
   
   const isStaff = roles.some(r => 
-    ['developer', 'superadmin', 'founder', 'management', 'hr'].includes(r)
+    ['developer', 'superadmin', 'founder', 'management', 'hr', 'event_team', 'media'].includes(r)
   );
 
   const isApproved = profile?.approval_status === 'approved';

@@ -195,20 +195,6 @@ export default function Telemetry() {
               )}
             </GlassCard>
             
-            {isDeveloper && connected && (
-              <GlassCard className="max-h-[500px] flex flex-col">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="p-2 rounded-lg bg-primary/20"><Wrench size={20} className="text-primary" /></div>
-                  <div>
-                    <h3 className="font-semibold">Raw SDK Buffer</h3>
-                    <p className="text-[10px] text-muted-foreground uppercase font-bold">{data.game.pluginVersion} // 186 CHANNELS</p>
-                  </div>
-                </div>
-                <div className="flex-1 overflow-auto bg-black/40 rounded-xl p-3 border border-white/5 font-mono text-[10px] text-green-500/80 custom-scrollbar">
-                  <pre>{JSON.stringify(raw || data, null, 2)}</pre>
-                </div>
-              </GlassCard>
-            )}
           </div>
         </div>
       </div>

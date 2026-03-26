@@ -29,9 +29,12 @@ export function useFleetStats() {
 
   const fetchStats = async () => {
     try {
-      const { data: rawJobs, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('job_logs')
-        .select('*');
+        .select('*')
+        .eq('status', 'delivered');
+      
+      const rawJobs = (data || []) as any[];
 
       if (error) throw error;
 
@@ -149,8 +152,8 @@ export function usePersonalStats(userId: string | undefined) {
     const fetchPersonalStats = async () => {
       setLoading(true);
       try {
-        // Fetch job logs for this user
-        const { data: jobs, error } = await supabase
+        // Fetch ALL job logs for this user (including cancelled for the table)
+        const { data: allJobs, error } = await (supabase as any)
           .from('job_logs')
           .select('*')
           .eq('user_id', userId)
@@ -158,20 +161,25 @@ export function usePersonalStats(userId: string | undefined) {
 
         if (error) throw error;
 
-        if (jobs && jobs.length > 0) {
-          const total_distance = jobs.reduce((sum, j) => sum + Number(j.distance_km || 0), 0);
-          const total_income = jobs.reduce((sum, j) => sum + Number(j.income || 0), 0);
-          const total_fuel = jobs.reduce((sum, j) => sum + Number(j.fuel_consumed || 0), 0);
-          const avg_damage = jobs.reduce((sum, j) => sum + Number(j.damage_percent || 0), 0) / jobs.length;
+        if (allJobs && allJobs.length > 0) {
+          // Only aggregate DELIVERED jobs for stats
+          const deliveredJobs = allJobs.filter((j: any) => j.status === 'delivered' || !j.status);
+          const total_distance = deliveredJobs.reduce((sum: number, j: any) => sum + Number(j.distance_km || 0), 0);
+          const total_income = deliveredJobs.reduce((sum: number, j: any) => sum + Number(j.income || 0), 0);
+          const total_fuel = deliveredJobs.reduce((sum: number, j: any) => sum + Number(j.fuel_consumed || 0), 0);
+          const avg_damage = deliveredJobs.length > 0
+            ? deliveredJobs.reduce((sum: number, j: any) => sum + Number(j.damage_percent || 0), 0) / deliveredJobs.length
+            : 0;
 
           setStats({
             total_distance,
-            total_deliveries: jobs.length,
+            total_deliveries: deliveredJobs.length,
             total_income,
             total_fuel,
             avg_damage
           });
-          setRecentJobs(jobs.slice(0, 100));
+          // Show ALL jobs (including cancelled) in the recent jobs table
+          setRecentJobs(allJobs.slice(0, 100));
         } else {
           setStats({
             total_distance: 0,
@@ -208,9 +216,10 @@ export function useWeeklyData() {
         const sevenDaysAgo = new Date(today);
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
 
-        const { data: jobs, error } = await supabase
+        const { data: jobs, error } = await (supabase as any)
           .from('job_logs')
           .select('delivery_date, distance_km, income')
+          .eq('status', 'delivered')
           .gte('delivery_date', sevenDaysAgo.toISOString())
           .order('delivery_date', { ascending: true });
 

@@ -7,6 +7,7 @@ import { useTruckersMP, TMPEvent } from '@/hooks/useTruckersMP';
 import { useEventReminders, CalendarEvent as ReminderEvent } from '@/hooks/useEventReminders';
 import { useUIStore } from '@/stores/appStore';
 import { supabase } from '@/integrations/supabase/client';
+import { isTauri } from '@/lib/tauri';
 import { toast } from 'sonner';
 import { format, parseISO, isSameDay, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, getDay, isToday, isSameMonth } from 'date-fns';
 import {
@@ -62,7 +63,7 @@ interface CalendarEvent {
 }
 
 export default function CalendarPage() {
-  const { getEvents, loading: tmpLoading } = useTruckersMP();
+  const { getEvents, getVTCEvents, loading: tmpLoading } = useTruckersMP();
   const { hasReminder, toggleReminder, reminderEvents, permission, requestPermission } = useEventReminders();
   const notificationsEnabled = useUIStore((s) => s.notificationsEnabled);
   const setNotificationsEnabled = useUIStore((s) => s.setNotificationsEnabled);
@@ -102,16 +103,39 @@ export default function CalendarPage() {
 
   const fetchVTCEvents = async () => {
     try {
-      const { data, error } = await supabase
-        .from('vtc_events')
-        .select('*')
-        .order('start_time', { ascending: true });
+      const [supabaseResponse, tmpVtcEventsData] = await Promise.all([
+        supabase.from('vtc_events').select('*').order('start_time', { ascending: true }),
+        getVTCEvents().catch(() => []) 
+      ]);
       
-      if (error) {
-        console.error('Error fetching VTC events:', error);
-        return;
-      }
-      setVtcEvents(data || []);
+      const internalEvents = supabaseResponse.data || [];
+      const externalEvents = (tmpVtcEventsData || []).map((event: any) => {
+        const formattedStartTime = (event.startAt || event.start_at || new Date().toISOString()).replace(' ', 'T');
+        return {
+          id: `tmp-vtc-${event.id}`,
+          title: event.name || 'Unknown Event',
+          description: event.description || '',
+          event_type: event.event_type?.key || 'convoy',
+          game: event.game || 'ETS2',
+          departure_city: event.departure?.city || 'Unknown',
+          arrival_city: event.arrive?.city || 'Unknown',
+          start_time: formattedStartTime,
+          server_name: event.server?.name || null,
+          banner_url: event.banner || null
+        };
+      });
+
+      // Combine and filter for upcoming only
+      const now = new Date();
+      const combined = [
+        ...internalEvents.map(e => ({ ...e, isInternal: true })),
+        ...externalEvents.map(e => ({ ...e, isInternal: false }))
+      ].filter(event => {
+        const startTime = new Date(event.start_time).getTime();
+        return startTime >= now.getTime();
+      });
+      
+      setVtcEvents(combined as any[]);
     } catch (error) {
       console.error('Error fetching VTC events:', error);
       setVtcEvents([]);
@@ -142,14 +166,15 @@ export default function CalendarPage() {
 
     // Add VTC events
     vtcEvents.forEach((event) => {
+      const startTime = (event.start_time || new Date().toISOString()).replace(' ', 'T');
       events.push({
-        id: `vtc-${event.id}`,
+        id: event.id.startsWith?.('tmp-vtc') ? event.id : `vtc-${event.id}`,
         title: event.title,
-        start: parseISO(event.start_time),
+        start: parseISO(startTime),
         type: 'vtc',
         game: event.game,
-        departure: `${event.departure_city}${event.departure_location ? `, ${event.departure_location}` : ''}`,
-        arrival: `${event.arrival_city}${event.arrival_location ? `, ${event.arrival_location}` : ''}`,
+        departure: event.departure_city,
+        arrival: event.arrival_city,
         description: event.description || undefined,
         server: event.server_name || undefined,
         banner: event.banner_url || undefined
@@ -236,13 +261,36 @@ export default function CalendarPage() {
   }, [calendarEvents]);
 
   // Download calendar file
-  const handleDownloadCalendar = useCallback(() => {
+  const handleDownloadCalendar = useCallback(async () => {
     if (calendarEvents.length === 0) {
       toast.error('No events to export');
       return;
     }
 
     const icsContent = generateICSContent();
+
+    try {
+      // Check if running within a Tauri webview
+      if (isTauri()) {
+        const { save } = await import('@tauri-apps/plugin-dialog');
+        const { writeTextFile } = await import('@tauri-apps/plugin-fs');
+
+        const filePath = await save({
+          filters: [{ name: 'Calendar File', extensions: ['ics'] }],
+          defaultPath: 'aura-vtc-events.ics',
+        });
+
+        if (filePath) {
+          await writeTextFile(filePath, icsContent, { baseDir: undefined });
+          toast.success('Calendar downloaded! (Saved to your device)');
+        }
+        return;
+      }
+    } catch (e) {
+      console.warn('Tauri save failed, falling back to browser download', e);
+    }
+
+    // Fallback for standard web browsers
     const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -252,7 +300,7 @@ export default function CalendarPage() {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    
+
     toast.success('Calendar downloaded! Import it to Apple Calendar, Google Calendar, or Outlook.');
   }, [calendarEvents, generateICSContent]);
 
@@ -501,7 +549,7 @@ export default function CalendarPage() {
 
       {/* Event Details Dialog */}
       <Dialog open={!!selectedEvent} onOpenChange={() => setSelectedEvent(null)}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto custom-scrollbar">
           {selectedEvent && (
             <>
               <DialogHeader>
@@ -600,7 +648,7 @@ export default function CalendarPage() {
                     onClick={() => handleToggleReminder(selectedEvent)}
                     className={cn(
                       "flex-1 gap-2",
-                      hasReminder(selectedEvent.id) && "bg-amber-500 hover:bg-amber-600"
+                      hasReminder(selectedEvent.id) && "bg-red-500 hover:bg-red-600"
                     )}
                   >
                     {hasReminder(selectedEvent.id) ? (

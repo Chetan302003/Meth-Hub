@@ -23,7 +23,7 @@ name = "probe"
 path = "src/bin/probe.rs"
 
 [dependencies]
-tauri = { version = "2.0", features = ["protocol-asset"] }
+tauri = { version = "2.0", features = ["protocol-asset", "tray-icon"] }
 tauri-plugin-shell = "2.0"
 tauri-plugin-fs = "2.0"
 tauri-plugin-http = "2"

@@ -78,8 +78,11 @@ function AuthRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+import { useBrightness } from "@/hooks/useBrightness";
+
 function GlobalHooks() {
   useDiscordRpc();
+  useBrightness(); 
   return null;
 }
 
