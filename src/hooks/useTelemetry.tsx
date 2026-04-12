@@ -337,12 +337,20 @@ export function useAutoJobLogger() {
   const [jobStartedAt, setJobStartedAt] = useState<string | null>(null);
   const [finalStatusOverride, setFinalStatusOverride] = useState<'delivered' | 'cancelled' | null>(null);
   const lastDiscordCargoId = useRef<string | null>(null);
+  const latestJobRef = useRef<TelemetryData['job'] | null>(null);
 
   // Track start/end of jobs
   useEffect(() => {
     // START: Job detected - Make it sticky if the cargo is the same
     if (isJobActive && data.job) {
-      const isNewCargo = pendingJob?.cargoId !== data.job.cargoId;
+      // Fix for TruckersMP Job Dispatcher: Rely on source/dest/cargo instead of just cargoId
+      // because TMP's new dispatcher sometimes fluctuates or blanks the cargoId.
+      let isNewCargo = false;
+      if (pendingJob && data.job) {
+        isNewCargo = pendingJob.source !== data.job.source || pendingJob.destination !== data.job.destination;
+      } else {
+        isNewCargo = pendingJob?.cargoId !== data.job.cargoId;
+      }
       const isNewTruck = data.truck.brand !== prevTruckBrand || data.truck.name !== prevTruckName;
 
       // Reset if it's a new job, a new truck, or if we just haven't set it yet
@@ -421,22 +429,30 @@ export function useAutoJobLogger() {
         if (data.truck.dash.fuel) {
           setPrevFuelTrack(data.truck.dash.fuel);
         }
+
+        // Cache the exact live data so we don't lose the final precise distanceKm if the SDK resets it.
+        if (data.job) {
+          latestJobRef.current = data.job;
+        }
       }
     }
 
-    // END: Job finished — detect by two reliable signals:
-    // 1. DELIVERED: jobFinishedCount increments (game engine confirms delivery)
-    // 2. CANCELLED: The tracked job disappears (isJobActive goes false OR cargo changes)
-    //    WITHOUT jobFinishedCount incrementing
+    // END: Job finished — detect by two reliable signals plus direct event mapping:
+    // 1. DELIVERED: jobFinishedCount increments OR jobEvent === 1
+    // 2. CANCELLED: jobEvent === 2 OR The tracked job disappears
     if (pendingJob && startEvents && !isLogging) {
       const deliveredInc = (data.events.delivered || 0) > startEvents.delivered;
+      const isEventDelivered = data.events.jobEvent === 1;
+      const isEventCancelled = data.events.jobEvent === 2;
+      
+      const isDelivery = deliveredInc || isEventDelivered;
       
       // Job disappeared: was active, now it's not (or cargo changed away from our tracked one)
       const jobDisappeared = !isJobActive && pendingJob.cargoId;
       const cargoSwapped = isJobActive && data.job && data.job.cargoId !== pendingJob.cargoId;
       
-      if (deliveredInc) {
-        // Genuine delivery confirmed by game engine
+      if (isDelivery) {
+        // Genuine delivery confirmed by game engine or job event
         console.log(' Titan Omega: Engine Job Completion Signal Detected. (Delivered)');
         setIsLogging(true);
         setFinalStatusOverride('delivered');
@@ -452,13 +468,29 @@ export function useAutoJobLogger() {
           setStartEvents(null);
           setJobStartedAt(null);
           setFinalStatusOverride(null);
+          latestJobRef.current = null;
         }, 5000);
         return () => clearTimeout(timer);
-      } else if (jobDisappeared || cargoSwapped) {
-        // Job vanished without a delivery increment = CANCELLED
-        console.log(' Titan Omega: Job Disappearance Detected WITHOUT delivery. (Cancelled)');
-        setIsLogging(true);
-        setFinalStatusOverride('cancelled');
+      } else if (isEventCancelled || jobDisappeared || cargoSwapped) {
+        // Check for TruckersMP dropped delivery bug
+        const drivenDist = startOdometer ? data.truck.dash.odometer - startOdometer : 0;
+        let pDist = stickyPlannedDistance || pendingJob.plannedDistance || 0;
+        if (pDist === 0 && data.truck.navigation.distance > 0) {
+          pDist = data.truck.navigation.distance / 1000;
+        }
+        
+        // If it isn't an explicit cancellation, and we drove almost the whole route, assume delivered.
+        const isLikelyBuggedDelivery = !isEventCancelled && drivenDist > 0 && pDist > 0 && (drivenDist >= pDist * 0.9);
+
+        if (isLikelyBuggedDelivery) {
+          console.log(' Titan Omega: Job Disappearance but Distance Match. Assuming Delivered (TMP Drop)');
+          setIsLogging(true);
+          setFinalStatusOverride('delivered');
+        } else {
+          console.log(' Titan Omega: Job Disappearance Detected WITHOUT delivery. (Cancelled)');
+          setIsLogging(true);
+          setFinalStatusOverride('cancelled');
+        }
 
         const timer = setTimeout(() => {
           setIsLogging(false);
@@ -471,6 +503,7 @@ export function useAutoJobLogger() {
           setStartEvents(null);
           setJobStartedAt(null);
           setFinalStatusOverride(null);
+          latestJobRef.current = null;
         }, 5000);
         return () => clearTimeout(timer);
       }
@@ -478,9 +511,10 @@ export function useAutoJobLogger() {
   }, [isJobActive, data.truck.dash.odometer, data.truck.navigation.distance, data.job, pendingJob, data.job?.cargoId, data.truck.brand, data.truck.name, startOdometer, jobId, data.truck.dash.fuel, data.events, startExpenses, startEvents, isLogging]);
 
   const prepareJobData = useCallback(() => {
-    // For terminal state (cancelled/delivered), we must look at data.job for final outcome (penalty/xp/event)
-    // but pendingJob for original source/dest if data.job is already cleared.
-    const job = data.job && !data.job.active ? data.job : (pendingJob || data.job);
+    // Priority: Live Data -> Final Cached Snapshot -> Original Padding Snapshot
+    // This stops SDK wipes from erasing the exact final distanceKm/income 
+    const job = data.job && !data.job.active && data.events.jobEvent !== 0 ? data.job 
+              : (data.job || latestJobRef.current || pendingJob);
     if (!job) return null;
 
     // Prefer job.distanceKm from SCS (high precision for finished jobs) if it's > 0

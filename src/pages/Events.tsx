@@ -828,25 +828,20 @@ function VTCEventCard({
                     size="icon"
                     title="Push Notification to App Users"
                     onClick={async () => {
-                      try {
                         const channel = supabase.channel('aura-broadcasts');
-                        await channel.subscribe();
-                        await channel.send({
-                          type: 'broadcast',
-                          event: 'event-alert',
-                          payload: {
-                            title: `🚛 Aura VTC: ${event.title}`,
-                            body: `${event.departure_city} → ${event.arrival_city} — ${format(parseISO(event.start_time), 'MMM dd, HH:mm')}`,
-                            url: '/events',
-                            sentBy: profile?.username || 'Staff',
-                          },
+                        const result = await channel.httpSend('event-alert', {
+                          title: `🚛 Aura VTC: ${event.title}`,
+                          body: `${event.departure_city} → ${event.arrival_city} — ${format(parseISO(event.start_time), 'MMM dd, HH:mm')}`,
+                          url: '/events',
+                          sentBy: profile?.username || 'Staff',
                         });
-                        supabase.removeChannel(channel);
-                        toast.success('Notification broadcasted to all online drivers!');
-                      } catch (err) {
-                        console.error('Broadcast error:', err);
-                        toast.error('Failed to send broadcast');
-                      }
+                        
+                        if (result.success) {
+                          toast.success('Notification broadcasted to all online drivers!');
+                        } else {
+                          console.error('Broadcast error:', result);
+                          toast.error('Failed to send broadcast');
+                        }
                     }}
                   >
                     <Send size={16} className="text-blue-400" />
@@ -916,24 +911,33 @@ function VTCEventCard({
             </div>
 
             {!isPast && (
-              <Button
-                variant={event.is_participating ? 'outline' : 'default'}
-                size="sm"
-                onClick={() => onRSVP(event.id, event.is_participating || false)}
-                className="gap-2"
-              >
-                {event.is_participating ? (
-                  <>
-                    <UserMinus size={16} />
-                    Leave Event
-                  </>
-                ) : (
-                  <>
-                    <UserPlus size={16} />
-                    Join Event
-                  </>
-                )}
-              </Button>
+              event.id.toString().startsWith('tmp-vtc-') ? (
+                <a href={event.route_url || '#'} target="_blank" rel="noopener noreferrer">
+                  <Button variant="secondary" size="sm" className="gap-2">
+                    <ExternalLink size={16} />
+                    View on TruckersMP
+                  </Button>
+                </a>
+              ) : (
+                <Button
+                  variant={event.is_participating ? 'outline' : 'default'}
+                  size="sm"
+                  onClick={() => onRSVP(event.id, event.is_participating || false)}
+                  className="gap-2"
+                >
+                  {event.is_participating ? (
+                    <>
+                      <UserMinus size={16} />
+                      Leave Event
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus size={16} />
+                      Join Event
+                    </>
+                  )}
+                </Button>
+              )
             )}
           </div>
         </div>

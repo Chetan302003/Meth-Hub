@@ -5,7 +5,12 @@ import { useAuth } from '@/hooks/useAuth';
 import { useTruckersMP } from '@/hooks/useTruckersMP';
 import { useAutoUpdater } from '@/hooks/useAutoUpdater';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { supabase } from '@/integrations/supabase/client';
+import { isTauri } from '@tauri-apps/api/core';
+import { getVersion } from '@tauri-apps/api/app';
 import { useBroadcastListener } from '@/hooks/useBroadcastListener';
+import { UpdateAnnouncementModal } from '@/components/developer/UpdateAnnouncementModal';
+import { usePresenceStore } from '@/stores/appStore';
 import { Button } from '@/components/ui/button';
 import {
   LayoutDashboard,
@@ -23,7 +28,8 @@ import {
   Megaphone,
   Calendar,
   CalendarDays,
-  Activity
+  Activity,
+  Rocket
 } from 'lucide-react';
 
 interface AppLayoutProps {
@@ -53,14 +59,31 @@ export function AppLayout({ children }: AppLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
-  // Initialize the auto-updater to check for Tauri OTA updates on launch
-  useAutoUpdater();
+  const { isChecking, checkForUpdates } = useAutoUpdater();
+  const [appVersion, setAppVersion] = useState<string>('1.0.0');
+  const [dbVersion, setDbVersion] = useState<string | null>(null);
 
   // Initialize push notifications for event reminders (30/15/5/1 min alerts)
   usePushNotifications();
 
   // Listen for staff-broadcast notifications via Supabase Realtime
   useBroadcastListener();
+
+  useEffect(() => {
+    if (isTauri()) {
+      getVersion().then(setAppVersion).catch(console.error);
+    }
+    
+    // Check global updates table for latest advertised version
+    supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'version')
+      .single()
+      .then(({ data }) => {
+        if (data && data.value) setDbVersion((data.value as any).latest);
+      });
+  }, []);
 
   // Close sidebar on route change (mobile)
   useEffect(() => {
@@ -79,6 +102,41 @@ export function AppLayout({ children }: AppLayoutProps) {
     };
     loadAvatar();
   }, [profile?.tmp_id, profile?.avatar_url, fetchPlayerAvatar]);
+
+  const setOnlineUsers = usePresenceStore(state => state.setOnlineUsers);
+
+  // Track Supabase Presence
+  useEffect(() => {
+    if (!profile?.user_id) return;
+    
+    const presenceChannel = supabase.channel('global-presence', {
+      config: { presence: { key: profile.user_id } }
+    });
+
+    presenceChannel.on('presence', { event: 'sync' }, () => {
+      const state = presenceChannel.presenceState();
+      const activeIds = new Set<string>();
+      Object.values(state).forEach(presences => {
+        presences.forEach((p: any) => {
+          if (p.user_id) activeIds.add(p.user_id);
+        });
+      });
+      setOnlineUsers(activeIds);
+    });
+
+    presenceChannel.subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') {
+        await presenceChannel.track({
+          user_id: profile.user_id,
+          online_at: new Date().toISOString()
+        });
+      }
+    });
+
+    return () => {
+      supabase.removeChannel(presenceChannel);
+    };
+  }, [profile?.user_id]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -191,7 +249,19 @@ export function AppLayout({ children }: AppLayoutProps) {
       )}
 
       {/* Main content */}
-      <main className="flex-1 lg:ml-72 flex flex-col h-[calc(100vh-2.5rem)]">
+      <main className="flex-1 lg:ml-72 flex flex-col h-[calc(100vh-2.5rem)] relative">
+        {dbVersion && appVersion !== dbVersion && (
+          <div className="bg-primary/20 border-b border-primary/30 text-primary px-4 sm:px-6 py-3 flex items-center justify-between text-sm backdrop-blur-md shadow-sm z-20 sticky top-0 animate-in slide-in-from-top-4">
+            <div className="flex items-center gap-2.5">
+              <Rocket size={18} className="animate-pulse" />
+              <span className="font-bold tracking-tight">Aura VTC Hub v{dbVersion} is available!</span>
+              <span className="hidden xl:inline text-primary/70 ml-2">Click update to experience the latest features.</span>
+            </div>
+            <Button size="sm" onClick={() => checkForUpdates(true)} disabled={isChecking} className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-full h-8 px-5 font-semibold text-xs transition-transform hover:scale-105">
+              {isChecking ? 'Checking...' : 'Update & Restart'}
+            </Button>
+          </div>
+        )}
         <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 lg:p-8 pt-16 lg:pt-8 bg-background">
           <div className="max-w-7xl mx-auto pb-4 w-full">
             {children}
@@ -206,6 +276,8 @@ export function AppLayout({ children }: AppLayoutProps) {
           </div>
         </footer>
       </main>
+      
+      <UpdateAnnouncementModal />
     </div>
   );
 }

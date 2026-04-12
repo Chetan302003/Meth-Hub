@@ -137,3 +137,14 @@ export const usePerformanceStore = create<PerformanceState>()((set) => ({
   setFps: (fps) => set({ fps, lastMeasure: Date.now() }),
   setMemoryUsage: (usage) => set({ memoryUsage: usage }),
 }));
+
+// ============ Global Presence State ============
+interface PresenceState {
+  onlineUsers: Set<string>;
+  setOnlineUsers: (users: Set<string>) => void;
+}
+
+export const usePresenceStore = create<PresenceState>()((set) => ({
+  onlineUsers: new Set(),
+  setOnlineUsers: (users) => set({ onlineUsers: users })
+}));

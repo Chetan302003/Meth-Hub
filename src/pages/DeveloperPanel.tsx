@@ -9,6 +9,9 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAutoUpdater } from '@/hooks/useAutoUpdater';
 import { isTauri } from '@tauri-apps/api/core';
+import { getVersion } from '@tauri-apps/api/app';
+import { Textarea } from '@/components/ui/textarea';
+import { PlayerStats } from '@/components/developer/PlayerStats';
 import {
   Code,
   Upload,
@@ -39,6 +42,7 @@ interface AppVersion {
 export default function DeveloperPanel() {
   const [version, setVersion] = useState<AppVersion | null>(null);
   const [newVersion, setNewVersion] = useState('');
+  const [releaseNotes, setReleaseNotes] = useState('');
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState({
     totalUsers: 0,
@@ -61,8 +65,13 @@ export default function DeveloperPanel() {
   const { isChecking, checkForUpdates } = useAutoUpdater();
   const [isDesktop, setIsDesktop] = useState(false);
 
+  const [appVersion, setAppVersion] = useState<string>('1.0.0');
+
   useEffect(() => {
     setIsDesktop(isTauri());
+    if (isTauri()) {
+      getVersion().then(setAppVersion).catch(console.error);
+    }
   }, []);
 
   const isDeveloper = hasRole('developer');
@@ -188,7 +197,7 @@ export default function DeveloperPanel() {
         const { error } = await supabase
           .from('app_settings')
           .update({
-            value: { current: version?.current || '1.0.0', latest: newVersion },
+            value: { current: version?.current || '1.0.0', latest: newVersion, release_notes: releaseNotes },
             updated_by: user?.id,
           })
           .eq('key', 'version');
@@ -198,7 +207,7 @@ export default function DeveloperPanel() {
           .from('app_settings')
           .insert({
             key: 'version',
-            value: { current: '1.0.0', latest: newVersion },
+            value: { current: '1.0.0', latest: newVersion, release_notes: releaseNotes },
             updated_by: user?.id,
           });
         if (error) throw error;
@@ -286,15 +295,15 @@ export default function DeveloperPanel() {
 
             <div className="space-y-4">
               <div className="flex justify-between items-center p-3 rounded-xl bg-muted/30">
-                <span className="text-muted-foreground">Current Version</span>
-                <span className="font-mono text-primary">{version?.current || '1.0.0'}</span>
+                <span className="text-muted-foreground">Current Installed Version</span>
+                <span className="font-mono text-primary">{appVersion}</span>
               </div>
               <div className="flex justify-between items-center p-3 rounded-xl bg-muted/30">
-                <span className="text-muted-foreground">Latest Version</span>
+                <span className="text-muted-foreground">Latest Hub Version</span>
                 <span className="font-mono text-primary">{version?.latest || '1.0.0'}</span>
               </div>
 
-              {version?.current !== version?.latest && (
+              {appVersion !== version?.latest && version?.latest && (
                 <div className="p-3 rounded-xl bg-warning/20 text-warning text-sm">
                   <AlertTriangle size={16} className="inline mr-2" />
                   Update available! Users will be notified on login.
@@ -341,8 +350,18 @@ export default function DeveloperPanel() {
                   onChange={(e) => setNewVersion(e.target.value)}
                   className="glass-input font-mono"
                 />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="releaseNotes">Release Notes (Markdown)</Label>
+                <Textarea
+                  id="releaseNotes"
+                  placeholder="What's new in this version?"
+                  value={releaseNotes}
+                  onChange={(e) => setReleaseNotes(e.target.value)}
+                  className="glass-input min-h-[100px] text-sm"
+                />
                 <p className="text-xs text-muted-foreground">
-                  Format: X.Y.Z (semantic versioning). Users will see update notification on next login.
+                  Format: X.Y.Z. Users will see release notes on next login. Markdown supported.
                 </p>
               </div>
               <Button
@@ -393,6 +412,11 @@ export default function DeveloperPanel() {
               </Button>
             }
           />
+        </div>
+
+        {/* Player Statistics */}
+        <div className="mt-8">
+          <PlayerStats />
         </div>
 
         {/* System Health */}

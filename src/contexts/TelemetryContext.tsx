@@ -13,18 +13,18 @@ export function TelemetryProvider({ children }: { children: React.ReactNode }) {
   const logger = useAutoJobLogger();
   
   const { saveJobLocally, syncJobsToSupabase } = useLocalDb();
-  const [saving, setSaving] = useState(false);
+  const isSavingRef = useRef(false);
   const lastSyncedJobId = useRef<string | null>(null);
   const lastWebhookSentId = useRef<string | null>(null);
 
   useEffect(() => {
     const autoSync = async () => {
-      if (logger.isLogging && user && isApproved && !saving) {
-        setSaving(true);
+      if (logger.isLogging && user && isApproved && !isSavingRef.current) {
+        isSavingRef.current = true;
         const jobData = logger.prepareJobData();
         
         if (!jobData || lastSyncedJobId.current === jobData.job_id) {
-          setSaving(false);
+          isSavingRef.current = false;
           return;
         }
         
@@ -103,12 +103,12 @@ export function TelemetryProvider({ children }: { children: React.ReactNode }) {
           console.error('Auto-Log Error:', err);
           toast.error('Auto-sync failed. Please check My Stats later.');
         } finally {
-          setSaving(false);
+          isSavingRef.current = false;
         }
       }
     };
     autoSync();
-  }, [logger.isLogging, user, isApproved, logger.prepareJobData, telemetry.data, saving]);
+  }, [logger.isLogging, user, isApproved, logger.prepareJobData, telemetry.data]);
 
   return (
     <TelemetryContext.Provider value={{ telemetry, logger }}>

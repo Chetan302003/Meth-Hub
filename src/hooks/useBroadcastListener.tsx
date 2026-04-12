@@ -4,6 +4,7 @@ import { useUIStore } from '@/stores/appStore';
 import { toast } from 'sonner';
 import { Bell } from 'lucide-react';
 import { sendNativeNotification } from '@/lib/tauri';
+import { useNavigate } from 'react-router-dom';
 
 interface BroadcastPayload {
   title: string;
@@ -18,6 +19,7 @@ interface BroadcastPayload {
  */
 export function useBroadcastListener() {
   const notificationsEnabled = useUIStore((s) => s.notificationsEnabled);
+  const navigate = useNavigate();
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   useEffect(() => {
@@ -45,7 +47,7 @@ export function useBroadcastListener() {
             if (payload.url?.startsWith('http')) {
               window.open(payload.url, '_blank');
             } else {
-              window.location.href = payload.url || '/events';
+              navigate(payload.url || '/events');
             }
           },
         } : undefined,
