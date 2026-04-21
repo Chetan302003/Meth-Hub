@@ -272,7 +272,7 @@ export function AppLayout({ children }: AppLayoutProps) {
         <footer className="shrink-0 px-4 sm:px-6 lg:px-8 py-2 border-t border-border/30 bg-background/95 backdrop-blur-sm">
           <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-1 text-[11px] text-muted-foreground/50">
             <span>© {new Date().getFullYear()} Aura VTC · All rights reserved</span>
-            <span>Designed & Developed by <a href="">Chetan</a></span>
+            <span>Designed & Developed by <a href="https://chetanmahajan.vercel.app">Chetan</a></span>
           </div>
         </footer>
       </main>
