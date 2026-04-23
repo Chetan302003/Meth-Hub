@@ -1,6 +1,7 @@
 import { useCallback, useState, useRef } from 'react';
 import Database from '@tauri-apps/plugin-sql';
 import { supabase } from '@/integrations/supabase/client';
+import { trackEvent } from "@/lib/aptabase";
 
 export interface LocalJob {
   id: string; // The job_id or a local guid
@@ -131,6 +132,7 @@ export function useLocalDb() {
 
           if (error) {
             console.error(`Failed to sync job ${job.id} to Supabase:`, error);
+            trackEvent('job_sync_failed', { reason: error.message });
           } else {
             console.log(`Job ${job.id} synced successfully.`);
             // Mark as synced locally
@@ -141,6 +143,7 @@ export function useLocalDb() {
           }
         } catch (jobErr) {
           console.error(`Error processing local job ${job.id}:`, jobErr);
+          trackEvent('job_sync_failed', { reason: String(jobErr) });
         }
       }
     } catch (e) {

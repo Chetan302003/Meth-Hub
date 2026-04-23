@@ -61,6 +61,7 @@
     "fs:allow-resource-read",
     "fs:allow-resource-meta",
     "fs:scope-applocaldata-recursive",
-    "dialog:allow-open"
+    "dialog:allow-open",
+    "aptabase:allow-track-event"
   ]
 }

@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useRef, useState } from 'r
 import { useTelemetry, useAutoJobLogger } from '@/hooks/useTelemetry';
 import { useLocalDb } from '@/hooks/useLocalDb';
 import { sendDiscordWebhook } from '@/lib/discord';
+import { trackEvent } from "@/lib/aptabase";
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -70,6 +71,14 @@ export function TelemetryProvider({ children }: { children: React.ReactNode }) {
 
           console.log(' Titan Omega: Job Offline Save Success:', jobData.job_id);
           toast.success(`Job Saved Locally: ${jobData.origin_city} to ${jobData.destination_city}`);
+          
+          trackEvent(`job_${jobData.status === 'finished' ? 'completed' : 'cancelled'}`, {
+            job_id: jobData.job_id,
+            origin: jobData.origin_city,
+            destination: jobData.destination_city,
+            distance: jobData.distance_km,
+            revenue: jobData.revenue
+          });
 
           if (user?.user_metadata?.username && lastWebhookSentId.current !== jobData.job_id) {
             lastWebhookSentId.current = jobData.job_id;

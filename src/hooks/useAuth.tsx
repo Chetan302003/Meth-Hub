@@ -2,6 +2,7 @@ import { useState, useEffect, createContext, useContext, ReactNode } from 'react
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import * as Sentry from '@sentry/react';
 
 export type AppRole = 'developer' | 'superadmin' | 'founder' | 'management' | 'hr' | 'event_team' | 'media' | 'driver';
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
@@ -47,7 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .from('profiles')
       .select('*')
       .eq('user_id', userId)
-      .single();
+      .maybeSingle();
     
     if (error) {
       console.error('Error fetching profile:', error);
@@ -86,33 +87,80 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setProfile(profileData);
             setRoles(rolesData);
             setLoading(false);
+            if (profileData) {
+              Sentry.setUser({ id: session.user.id, username: profileData.username });
+            }
           }, 0);
         } else {
           setProfile(null);
           setRoles([]);
           setLoading(false);
+          Sentry.setUser(null);
         }
       }
     );
 
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        Promise.all([
-          fetchProfile(session.user.id),
-          fetchRoles(session.user.id)
-        ]).then(([profileData, rolesData]) => {
-          setProfile(profileData);
-          setRoles(rolesData);
+    // THEN check for existing session and validate it against the server
+    const initAuth = async () => {
+      try {
+        const { data: { session: localSession } } = await supabase.auth.getSession();
+        
+        if (!localSession) {
           setLoading(false);
-        });
-      } else {
+          return;
+        }
+
+        // If offline, trust the local session and skip server validation to prevent false logouts
+        if (!navigator.onLine) {
+          console.warn("App is offline. Trusting local session.");
+          setSession(localSession);
+          setUser(localSession.user);
+          setLoading(false);
+          return;
+        }
+
+        // We are online, validate token strictly against the server
+        const { data: { user: validatedUser }, error } = await supabase.auth.getUser();
+
+        if (error || !validatedUser) {
+          // Double-check it's not a network error before wiping the session
+          if (error && !error.message.toLowerCase().includes('failed to fetch')) {
+            console.error("Auth validation error (revoked, expired, or logged in elsewhere):", error);
+            await supabase.auth.signOut(); 
+            setSession(null);
+            setUser(null);
+          } else if (error && error.message.toLowerCase().includes('failed to fetch')) {
+             console.warn("Network error during validation. Treating as offline.");
+             setSession(localSession);
+             setUser(localSession.user);
+          }
+          setLoading(false);
+          return;
+        }
+        
+        // If valid, apply the session and fetch profile
+        setSession(localSession);
+        setUser(validatedUser);
+        
+        const [profileData, rolesData] = await Promise.all([
+          fetchProfile(validatedUser.id),
+          fetchRoles(validatedUser.id)
+        ]);
+        
+        setProfile(profileData);
+        setRoles(rolesData);
+        setLoading(false);
+        
+        if (profileData) {
+          Sentry.setUser({ id: validatedUser.id, username: profileData.username });
+        }
+      } catch (err) {
+        console.error("Auth initialization error:", err);
         setLoading(false);
       }
-    });
+    };
+
+    initAuth();
 
     return () => subscription.unsubscribe();
   }, []);
@@ -162,6 +210,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(null);
     setProfile(null);
     setRoles([]);
+    Sentry.setUser(null);
   };
 
   const hasRole = (role: AppRole) => roles.includes(role);
@@ -170,7 +219,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     ['developer', 'superadmin', 'founder', 'management', 'hr', 'event_team', 'media'].includes(r)
   );
 
-  const isApproved = profile?.approval_status === 'approved';
+  const isApproved = profile?.approval_status === 'approved' || isStaff;
 
   return (
     <AuthContext.Provider value={{

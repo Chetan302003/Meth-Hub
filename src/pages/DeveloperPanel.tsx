@@ -33,6 +33,7 @@ import {
   Clock
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface AppVersion {
   current: string;
@@ -381,38 +382,47 @@ export default function DeveloperPanel() {
         </div>
 
         {/* System Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard
-            title="Total Users"
-            value={stats.totalUsers}
-            icon={<Users size={24} />}
-          />
-          <StatCard
-            title="Pending Approvals"
-            value={stats.pendingUsers}
-            icon={<AlertTriangle size={24} />}
-          />
-          <StatCard
-            title="Total Jobs Logged"
-            value={stats.totalJobs}
-            icon={<Database size={24} />}
-          />
-          <StatCard
-            title="System Logs"
-            value={stats.totalLogs}
-            icon={<Activity size={24} />}
-            subtitle={
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleDeleteOldLogs}
-                className="text-xs p-0 h-auto text-muted-foreground hover:text-destructive"
-              >
-                <Trash2 size={12} className="mr-1" /> Clean old logs
-              </Button>
-            }
-          />
-        </div>
+        {loading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Skeleton className="h-28 sm:h-32 w-full rounded-2xl" />
+            <Skeleton className="h-28 sm:h-32 w-full rounded-2xl" />
+            <Skeleton className="h-28 sm:h-32 w-full rounded-2xl" />
+            <Skeleton className="h-28 sm:h-32 w-full rounded-2xl" />
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatCard
+              title="Total Users"
+              value={stats.totalUsers}
+              icon={<Users size={24} />}
+            />
+            <StatCard
+              title="Pending Approvals"
+              value={stats.pendingUsers}
+              icon={<AlertTriangle size={24} />}
+            />
+            <StatCard
+              title="Total Jobs Logged"
+              value={stats.totalJobs}
+              icon={<Database size={24} />}
+            />
+            <StatCard
+              title="System Logs"
+              value={stats.totalLogs}
+              icon={<Activity size={24} />}
+              subtitle={
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleDeleteOldLogs}
+                  className="text-xs p-0 h-auto text-muted-foreground hover:text-destructive"
+                >
+                  <Trash2 size={12} className="mr-1" /> Clean old logs
+                </Button>
+              }
+            />
+          </div>
+        )}
 
         {/* Player Statistics */}
         <div className="mt-8">
@@ -576,6 +586,37 @@ export default function DeveloperPanel() {
           )}
         </GlassCard>
 
+        {import.meta.env.DEV && (
+          <GlassCard className="mt-8 border-red-500/50 relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-4 opacity-10">
+              <Activity size={100} className="text-red-500" />
+            </div>
+            <h3 className="text-lg font-semibold text-red-400 mb-4 flex items-center gap-2">
+              <AlertTriangle size={20} />
+              Telemetry Testing
+            </h3>
+            <div className="flex gap-4">
+              <Button 
+                variant="destructive" 
+                onClick={() => { throw new Error("Sentry Test Error from Dev Panel"); }}
+              >
+                Trigger Sentry Crash
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => { 
+                  import("@/lib/aptabase").then(({ trackEvent }) => {
+                    trackEvent("test_event")
+                      .then(() => toast({ title: "Test Event Sent via IPC" }))
+                      .catch(err => toast({ variant: "destructive", title: "Aptabase Error", description: String(err) }));
+                  }).catch(err => toast({ variant: "destructive", title: "Import Error", description: String(err) }));
+                }}
+              >
+                Send Aptabase Event
+              </Button>
+            </div>
+          </GlassCard>
+        )}
       </div>
     </>
   );

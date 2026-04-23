@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { isTauri } from '@/lib/tauri';
 import { useAuth } from './useAuth';
 import { sendDiscordWebhook } from '@/lib/discord';
+import { trackEvent } from "@/lib/aptabase";
 
 export interface AuraPlacement {
   x: number;
@@ -407,6 +408,12 @@ export function useAutoJobLogger() {
         if (currentPlanned > 0 && jobId && user?.user_metadata?.username && lastDiscordCargoId.current !== data.job.cargoId) {
           lastDiscordCargoId.current = data.job.cargoId;
           const avatarUrl = user.user_metadata.avatar_url || "https://postimg.cc/G9xHn83L";
+
+          trackEvent('job_started', {
+            job_id: jobId,
+            origin: data.job.source,
+            destination: data.job.destination
+          });
 
           sendDiscordWebhook('job_started', {
             username: user.user_metadata.username,

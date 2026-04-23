@@ -27,6 +27,7 @@ import {
   Line
 } from 'recharts';
 import { format } from 'date-fns';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const CHART_COLORS = {
   green: 'hsl(145, 90%, 45%)',
@@ -112,8 +113,24 @@ export default function MyStats() {
           <p className="text-muted-foreground text-sm sm:text-base mt-1">Your personal driving performance</p>
         </div>
 
-        {/* Personal Stats Grid - Colorful */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        {loading && !stats ? (
+          <>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+              <Skeleton className="h-28 sm:h-32 w-full rounded-2xl" />
+              <Skeleton className="h-28 sm:h-32 w-full rounded-2xl" />
+              <Skeleton className="h-28 sm:h-32 w-full rounded-2xl" />
+              <Skeleton className="h-28 sm:h-32 w-full rounded-2xl" />
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
+              <Skeleton className="h-64 sm:h-72 lg:h-80 w-full rounded-2xl" />
+              <Skeleton className="h-64 sm:h-72 lg:h-80 w-full rounded-2xl" />
+            </div>
+            <Skeleton className="h-96 w-full rounded-2xl" />
+          </>
+        ) : (
+          <>
+            {/* Personal Stats Grid - Colorful */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <StatCard
             title="Total Distance"
             value={stats ? `${formatNumber(stats.total_distance)} km` : '0 km'}
@@ -253,6 +270,7 @@ export default function MyStats() {
                     <th className="text-right py-3 px-3 text-muted-foreground font-medium text-xs sm:text-sm">XP</th>
                     <th className="text-right py-3 px-3 text-muted-foreground font-medium text-xs sm:text-sm">Distance</th>
                     <th className="text-right py-3 px-3 text-muted-foreground font-medium text-xs sm:text-sm">Income</th>
+                    <th className="text-right py-3 px-3 text-muted-foreground font-medium text-xs sm:text-sm">Damage</th>
                     <th className="text-center py-3 px-3 text-muted-foreground font-medium text-xs sm:text-sm">Status</th>
                   </tr>
                 </thead>
@@ -290,6 +308,11 @@ export default function MyStats() {
                       <td className="py-3 px-3 text-right">
                         <span className="font-medium text-amber text-xs sm:text-sm">
                           {formatCurrency(Number(job.income))}
+                        </span>
+                      </td>
+                      <td className="py-3 px-3 text-right">
+                        <span className={`font-medium text-xs sm:text-sm ${Number(job.damage_percent) > 0 ? 'text-rose' : 'text-green-500'}`}>
+                          {Number(job.damage_percent || 0).toFixed(1)}%
                         </span>
                       </td>
                       <td className="py-3 px-3 text-center">
@@ -363,6 +386,8 @@ export default function MyStats() {
             </div>
           </GlassCard>
         </div>
+          </>
+        )}
       </div>
     </>
   );

@@ -3,10 +3,11 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Titlebar } from './components/Titlebar';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { HashRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
+import { HashRouter, Routes, Route, Navigate, Outlet, useLocation } from "react-router-dom";
 import { AppLayout } from '@/components/layout/AppLayout';
-
-
+import { useEffect } from "react";
+import { trackEvent } from "@/lib/aptabase";
+import { getVersion } from "@tauri-apps/api/app";
 // Pages
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
@@ -86,6 +87,32 @@ function GlobalHooks() {
   return null;
 }
 
+function AppTelemetryTracker() {
+  const location = useLocation();
+
+  useEffect(() => {
+    trackEvent("page_viewed", { page: location.pathname });
+  }, [location]);
+
+  useEffect(() => {
+    const checkVersion = async () => {
+      try {
+        const currentVersion = await getVersion();
+        const storedVersion = localStorage.getItem("app_version");
+        if (storedVersion && storedVersion !== currentVersion) {
+          trackEvent("app_updated", { from: storedVersion, to: currentVersion });
+        }
+        localStorage.setItem("app_version", currentVersion);
+      } catch (e) {
+        // Ignored in non-Tauri env
+      }
+    };
+    checkVersion();
+  }, []);
+
+  return null;
+}
+
 function AppRoutes() {
   return (
     <Routes>
@@ -130,6 +157,7 @@ const App = () => (
             <AuthProvider>
               <TelemetryProvider>
                 <GlobalHooks />
+                <AppTelemetryTracker />
                 <AppRoutes />
               </TelemetryProvider>
             </AuthProvider>

@@ -36,6 +36,7 @@ import {
   Legend
 } from 'recharts';
 import { format } from 'date-fns';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface Announcement {
   id: string;
@@ -241,36 +242,45 @@ export default function Dashboard() {
         )}
 
         {/* Fleet Stats Grid - Colorful */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          <StatCard
-            title="Fleet Distance"
-            value={stats ? `${formatNumber(stats.total_distance)} km` : '0 km'}
-            icon={<MapPin size={20} className="sm:w-6 sm:h-6" />}
-            subtitle="All drivers"
-            color="green"
-          />
-          <StatCard
-            title="Deliveries"
-            value={stats ? formatNumber(stats.total_deliveries) : '0'}
-            icon={<Package size={20} className="sm:w-6 sm:h-6" />}
-            subtitle="Completed"
-            color="cyan"
-          />
-          <StatCard
-            title="Revenue"
-            value={stats ? formatCurrency(stats.total_income) : '$0'}
-            icon={<DollarSign size={20} className="sm:w-6 sm:h-6" />}
-            subtitle="Total earnings"
-            color="amber"
-          />
-          <StatCard
-            title="Active Drivers"
-            value={stats?.active_drivers || '0'}
-            icon={<Users size={20} className="sm:w-6 sm:h-6" />}
-            subtitle="Approved"
-            color="purple"
-          />
-        </div>
+        {fleetLoading && !stats ? (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <Skeleton className="h-28 sm:h-32 w-full rounded-2xl" />
+            <Skeleton className="h-28 sm:h-32 w-full rounded-2xl" />
+            <Skeleton className="h-28 sm:h-32 w-full rounded-2xl" />
+            <Skeleton className="h-28 sm:h-32 w-full rounded-2xl" />
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <StatCard
+              title="Fleet Distance"
+              value={stats ? `${formatNumber(stats.total_distance)} km` : '0 km'}
+              icon={<MapPin size={20} className="sm:w-6 sm:h-6" />}
+              subtitle="All drivers"
+              color="green"
+            />
+            <StatCard
+              title="Deliveries"
+              value={stats ? formatNumber(stats.total_deliveries) : '0'}
+              icon={<Package size={20} className="sm:w-6 sm:h-6" />}
+              subtitle="Completed"
+              color="cyan"
+            />
+            <StatCard
+              title="Revenue"
+              value={stats ? formatCurrency(stats.total_income) : '$0'}
+              icon={<DollarSign size={20} className="sm:w-6 sm:h-6" />}
+              subtitle="Total earnings"
+              color="amber"
+            />
+            <StatCard
+              title="Active Drivers"
+              value={stats?.active_drivers || '0'}
+              icon={<Users size={20} className="sm:w-6 sm:h-6" />}
+              subtitle="Approved"
+              color="purple"
+            />
+          </div>
+        )}
 
         {/* Featured Events */}
         <FeaturedEventsCarousel />

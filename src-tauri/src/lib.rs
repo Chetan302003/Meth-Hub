@@ -56,6 +56,7 @@ use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
 };
+use tauri_plugin_aptabase::EventTracker;
 
 pub fn run() {
     tauri::Builder::default()
@@ -66,6 +67,7 @@ pub fn run() {
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_aptabase::Builder::new(env!("VITE_APTABASE_APP_KEY")).build())
         .plugin(tauri_plugin_sql::Builder::default().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(
@@ -86,6 +88,9 @@ pub fn run() {
             rpc::clear_discord_rpc
         ])
         .setup(|app| {
+            // Track an event immediately on startup to verify Rust connection
+            app.track_event("rust_backend_started", None);
+
             // Create Tray Menu
             let show_i = MenuItem::with_id(app, "show", "Show", true, None::<&str>)?;
             let quit_i = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;

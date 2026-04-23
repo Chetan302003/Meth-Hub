@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useAuth } from '@/hooks/useAuth';
+import { useLocalDb } from '@/hooks/useLocalDb';
 import { supabase } from '@/integrations/supabase/client';
 import { GlassCard } from '@/components/layout/GlassCard';
 import { Button } from '@/components/ui/button';
@@ -55,12 +57,13 @@ interface TelemetryJobData {
 }
 
 export default function LogJob() {
-  const [loading, setLoading] = useState(false);
   const [telemetryFilled, setTelemetryFilled] = useState(false);
   const { user, isApproved } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const { saveJobLocally } = useLocalDb();
 
   const form = useForm<JobForm>({
     resolver: zodResolver(jobSchema),
@@ -101,59 +104,120 @@ export default function LogJob() {
     }
   }, [location.state, form, toast]);
 
-  const onSubmit = async (data: JobForm) => {
-    if (!user) {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'You must be logged in to log a job.',
-      });
-      return;
-    }
+  const submitJobMutation = useMutation({
+    mutationFn: async (data: JobForm) => {
+      const isOffline = !navigator.onLine;
+      const newJobId = crypto.randomUUID();
 
-    if (!isApproved) {
-      toast({
-        variant: 'destructive',
-        title: 'Account Pending',
-        description: 'Your account must be approved before you can log jobs.',
-      });
-      return;
-    }
+      const payload = {
+        id: newJobId,
+        user_id: user!.id,
+        origin_city: data.origin_city,
+        destination_city: data.destination_city,
+        distance_km: data.distance_km,
+        cargo_type: data.cargo_type || null,
+        cargo_weight: data.cargo_weight || null,
+        fuel_consumed: data.fuel_consumed || 0,
+        income: data.income,
+        expenses: data.expenses || 0,
+        damage_percent: data.damage_percent || 0,
+        delivery_date: data.delivery_date ? new Date(data.delivery_date).toISOString() : new Date().toISOString(),
+        notes: data.notes || null,
+        status: 'delivered'
+      };
 
-    setLoading(true);
+      if (isOffline) {
+        const localPayload = { ...payload, job_id: newJobId };
+        const saved = await saveJobLocally(localPayload);
+        if (!saved) throw new Error("Failed to queue job locally while offline.");
+        return { data, queuedOffline: true };
+      }
 
-    const { error } = await supabase.from('job_logs').insert({
-      user_id: user.id,
-      origin_city: data.origin_city,
-      destination_city: data.destination_city,
-      distance_km: data.distance_km,
-      cargo_type: data.cargo_type || null,
-      cargo_weight: data.cargo_weight || null,
-      fuel_consumed: data.fuel_consumed || 0,
-      income: data.income,
-      expenses: data.expenses || 0,
-      damage_percent: data.damage_percent || 0,
-      delivery_date: data.delivery_date ? new Date(data.delivery_date).toISOString() : new Date().toISOString(),
-      notes: data.notes || null,
-    });
+      const { error } = await supabase.from('job_logs').insert(payload);
 
-    if (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: error.message,
+      if (error) {
+        if (error.message.toLowerCase().includes('failed to fetch')) {
+          const localPayload = { ...payload, job_id: newJobId };
+          const saved = await saveJobLocally(localPayload);
+          if (!saved) throw new Error("Network error. Failed to queue job locally.");
+          return { data, queuedOffline: true };
+        }
+        throw error;
+      }
+      
+      return { data, queuedOffline: false };
+    },
+    onMutate: async (newJobData) => {
+      await queryClient.cancelQueries({ queryKey: ['personalStats', user?.id] });
+      await queryClient.cancelQueries({ queryKey: ['fleetStats'] });
+
+      const previousPersonalStats = queryClient.getQueryData(['personalStats', user?.id]);
+      const previousFleetStats = queryClient.getQueryData(['fleetStats']);
+
+      queryClient.setQueryData(['personalStats', user?.id], (old: any) => {
+        if (!old) return old;
+        
+        const newJobRecord = {
+          ...newJobData,
+          id: 'optimistic-id',
+          delivery_date: newJobData.delivery_date ? new Date(newJobData.delivery_date).toISOString() : new Date().toISOString(),
+          status: 'delivered'
+        };
+
+        return {
+          ...old,
+          stats: {
+            ...old.stats,
+            total_distance: old.stats.total_distance + Number(newJobData.distance_km),
+            total_income: old.stats.total_income + Number(newJobData.income),
+            total_deliveries: old.stats.total_deliveries + 1,
+          },
+          recentJobs: [newJobRecord, ...old.recentJobs]
+        };
       });
-    } else {
-      toast({
-        title: 'Job Logged!',
-        description: 'Your delivery has been recorded successfully.',
-      });
+
+      return { previousPersonalStats, previousFleetStats };
+    },
+    onError: (err, newJob, context) => {
+      if (context?.previousPersonalStats) {
+        queryClient.setQueryData(['personalStats', user?.id], context.previousPersonalStats);
+      }
+      if (context?.previousFleetStats) {
+        queryClient.setQueryData(['fleetStats'], context.previousFleetStats);
+      }
+      toast({ variant: 'destructive', title: 'Error', description: err.message });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['personalStats', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['fleetStats'] });
+      queryClient.invalidateQueries({ queryKey: ['weeklyData'] });
+      queryClient.invalidateQueries({ queryKey: ['fleetLeaderboard'] });
+    },
+    onSuccess: (result) => {
+      if (result.queuedOffline) {
+        toast({ 
+          title: 'Offline Mode: Job Queued!', 
+          description: 'Your job has been saved locally and will auto-sync when you reconnect to the internet.' 
+        });
+      } else {
+        toast({ title: 'Job Logged!', description: 'Your delivery has been recorded successfully.' });
+      }
       form.reset();
       setTelemetryFilled(false);
       navigate('/my-stats');
     }
+  });
 
-    setLoading(false);
+  const onSubmit = async (data: JobForm) => {
+    if (!user) {
+      toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in to log a job.' });
+      return;
+    }
+    if (!isApproved) {
+      toast({ variant: 'destructive', title: 'Account Pending', description: 'Your account must be approved before you can log jobs.' });
+      return;
+    }
+    submitJobMutation.mutate(data);
   };
 
   if (!isApproved) {
@@ -387,10 +451,10 @@ export default function LogJob() {
               </Button>
               <Button
                 type="submit"
-                disabled={loading}
+                disabled={submitJobMutation.isPending}
                 className="flex-1 rounded-full neon-glow"
               >
-                {loading ? (
+                {submitJobMutation.isPending ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin mr-2" />
                     Saving...
