@@ -54,6 +54,7 @@
     "shortDescription": "Aura VTC Hub",
     "longDescription": "Fleet management hub for Euro Truck Simulator 2 VTC",
     "windows": {
+      "webviewInstallMode": { "type": "embedBootstrapper" },
       "nsis": {
         "installerIcon": "icons/icon.ico",
         "headerImage": "icons/icon.png",

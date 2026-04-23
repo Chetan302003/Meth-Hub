@@ -586,9 +586,8 @@ export default function DeveloperPanel() {
           )}
         </GlassCard>
 
-        {import.meta.env.DEV && (
-          <GlassCard className="mt-8 border-red-500/50 relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-4 opacity-10">
+        <GlassCard className="mt-8 border-red-500/50 relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-4 opacity-10">
               <Activity size={100} className="text-red-500" />
             </div>
             <h3 className="text-lg font-semibold text-red-400 mb-4 flex items-center gap-2">
@@ -616,7 +615,6 @@ export default function DeveloperPanel() {
               </Button>
             </div>
           </GlassCard>
-        )}
       </div>
     </>
   );
