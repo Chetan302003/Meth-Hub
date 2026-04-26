@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://media.discordapp.net/attachments/1069502621062086707/1118165684610732152/Aura_VTC_Logo.png" alt="Aura VTC Logo" width="200" />
+  <img src="https://media.discordapp.nehttpst/attachments/1069502621062086707/1118165684610732152/Aura_VTC_Logo.png" alt="Aura VTC Logo" width="200" />
   <h1>Aura VTC Hub</h1>
   <p><strong>A Modern, High-Performance Virtual Trucking Hub for ETS2 & ATS</strong></p>
 
