@@ -123,7 +123,14 @@ export function useLocalDb() {
             truck_name: rawJob.truck_name,
             trailer_id: rawJob.trailer_id,
             avg_fuel_consumption: rawJob.avg_fuel_consumption,
-            is_special_transport: rawJob.is_special_transport
+            is_special_transport: rawJob.is_special_transport,
+            had_reconnect: rawJob.had_reconnect || false,
+            reconnect_count: rawJob.reconnect_count || 0,
+            used_ferry: rawJob.used_ferry || false,
+            toll_amount: rawJob.toll_amount || 0,
+            repair_amount: rawJob.repair_amount || 0,
+            ferry_amount: rawJob.ferry_amount || 0,
+            train_amount: rawJob.train_amount || 0,
           };
           
           const { error } = await supabase

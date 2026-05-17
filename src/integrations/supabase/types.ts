@@ -168,6 +168,8 @@ export type Database = {
           updated_at: string | null
           user_id: string
           username: string
+          last_seen: string | null
+          is_online: boolean | null
         }
         Insert: {
           approval_status?:
@@ -181,6 +183,8 @@ export type Database = {
           updated_at?: string | null
           user_id: string
           username: string
+          last_seen?: string | null
+          is_online?: boolean | null
         }
         Update: {
           approval_status?:
@@ -194,6 +198,8 @@ export type Database = {
           updated_at?: string | null
           user_id?: string
           username?: string
+          last_seen?: string | null
+          is_online?: boolean | null
         }
         Relationships: []
       }

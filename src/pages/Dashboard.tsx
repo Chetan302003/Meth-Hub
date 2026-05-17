@@ -114,6 +114,23 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, [syncJobsToSupabase]);
 
+  // 3-Minute Heartbeat for Player Offline Stats
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const writeHeartbeat = async () => {
+      await supabase
+        .from("profiles")
+        .update({ last_seen: new Date().toISOString() })
+        .eq("user_id", user.id);
+    };
+
+    writeHeartbeat(); // write immediately on mount
+    const interval = setInterval(writeHeartbeat, 3 * 60 * 1000);
+
+    return () => clearInterval(interval); // always clean up
+  }, [user?.id]);
+
 
   const formatNumber = (num: number) => {
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;

@@ -115,9 +115,27 @@ export default function Settings() {
     if (!user) return;
 
     setLoading(true);
+    
+    // Fetch avatar from TruckersMP if ID is provided
+    let avatarUrl = profile?.avatar_url || null;
+    if (tmpId && tmpId !== profile?.tmp_id) {
+      try {
+        const response = await fetch(`https://api.truckersmp.com/v2/player/${tmpId}`);
+        if (response.ok) {
+          const data = await response.json();
+          avatarUrl = data.response?.avatar || avatarUrl;
+        }
+      } catch (err) {
+        console.error('Failed to fetch TMP avatar:', err);
+      }
+    }
+
     const { error } = await supabase
       .from('profiles')
-      .update({ tmp_id: tmpId || null })
+      .update({ 
+        tmp_id: tmpId || null,
+        avatar_url: avatarUrl
+      })
       .eq('user_id', user.id);
 
     if (error) {
@@ -129,7 +147,7 @@ export default function Settings() {
     } else {
       toast({
         title: 'Profile Updated',
-        description: 'Your settings have been saved.',
+        description: 'Your settings and avatar have been saved.',
       });
     }
     setLoading(false);

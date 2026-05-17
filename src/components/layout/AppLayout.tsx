@@ -72,7 +72,9 @@ export function AppLayout({ children }: AppLayoutProps) {
 
   useEffect(() => {
     if (isTauri()) {
-      getVersion().then(setAppVersion).catch(console.error);
+      getVersion()
+        .then((v) => setAppVersion(v.replace(/^v/, '').trim()))
+        .catch(console.error);
     }
     
     // Check global updates table for latest advertised version
@@ -82,7 +84,10 @@ export function AppLayout({ children }: AppLayoutProps) {
       .eq('key', 'version')
       .single()
       .then(({ data }) => {
-        if (data && data.value) setDbVersion((data.value as any).latest);
+        if (data && data.value) {
+          const latest = String((data.value as any).latest).replace(/^v/, '').trim();
+          setDbVersion(latest);
+        }
       });
   }, []);
 

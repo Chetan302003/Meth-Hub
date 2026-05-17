@@ -113,9 +113,13 @@ export function FeaturedEventsCarousel() {
     }
 
     // Sort by start time
-    combinedEvents.sort((a, b) =>
-      new Date((a.startTime || '').replace(' ', 'T')).getTime() - new Date((b.startTime || '').replace(' ', 'T')).getTime()
-    );
+    combinedEvents.sort((a, b) => {
+      let timeA = (a.startTime || '').replace(' ', 'T');
+      if (timeA && !timeA.endsWith('Z') && !timeA.includes('+')) timeA += 'Z';
+      let timeB = (b.startTime || '').replace(' ', 'T');
+      if (timeB && !timeB.endsWith('Z') && !timeB.includes('+')) timeB += 'Z';
+      return new Date(timeA).getTime() - new Date(timeB).getTime();
+    });
 
     setEvents(combinedEvents.slice(0, 8));
     setLoading(false);

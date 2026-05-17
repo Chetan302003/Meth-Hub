@@ -1,0 +1,155 @@
+{
+  "game": {
+    "connected": true,
+    "paused": false,
+    "time": 173140,
+    "pluginVersion": "5.6.1",
+    "mpTimeOffset": 0
+  },
+  "truck": {
+    "brand": "MAN",
+    "name": "TGX Euro 5",
+    "speed": 5.6921873,
+    "rpm": 550.3519,
+    "gear": 1,
+    "cruiseControl": false,
+    "fuel": 596.5764,
+    "fuelCapacity": 700.0,
+    "odometer": 736960.94,
+    "wear": {
+      "engine": 13.052291,
+      "transmission": 6.9605937,
+      "cabin": 28.31648,
+      "chassis": 35.39559,
+      "wheels": 7.534532,
+      "total": 35.39559
+    },
+    "dash": {
+      "speed": 5.6921873,
+      "cruiseControlSpeed": 0.0,
+      "cruiseControlOn": false,
+      "engineEnabled": true,
+      "electricEnabled": true,
+      "wipersOn": true,
+      "rpm": 550.3519,
+      "rpmMax": 2500.0,
+      "gear": 1,
+      "odometer": 736960.94,
+      "dashboardBacklight": 1.0,
+      "fuel": 596.5764,
+      "fuelCapacity": 700.0,
+      "fuelAvgConsumption": 0.85125583,
+      "fuelRange": 1864.3014,
+      "fuelWarning": false,
+      "adblue": 74.82882,
+      "adblueCapacity": 80.0,
+      "adblueWarning": false,
+      "oilPressure": 37.908924,
+      "oilPressureWarning": false,
+      "oilTemperature": 97.81156,
+      "waterTemperature": 82.96605,
+      "waterTempWarning": false,
+      "batteryVoltage": 25.523766,
+      "batteryWarning": false,
+      "brakeAirPressure": 133.12527,
+      "brakeAirWarning": false,
+      "brakeAirEmergency": false,
+      "brakeTemperature": 17.663052
+    },
+    "lights": {
+      "lowBeam": true,
+      "highBeam": true,
+      "parking": true,
+      "beacon": true,
+      "brake": false,
+      "reverse": false,
+      "lblinker": true,
+      "rblinker": true,
+      "hazard": true,
+      "auxFront": 2,
+      "auxRoof": 2
+    },
+    "inputs": {
+      "steering": 0.0,
+      "throttle": 0.0,
+      "brake": 0.0,
+      "clutch": 0.0,
+      "effectiveSteering": 0.00011293262,
+      "cruiseControl": false
+    },
+    "geometry": {
+      "cabinPos": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0,
+        "heading": 0.0,
+        "pitch": 0.0,
+        "roll": 0.0
+      },
+      "headPos": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0,
+        "heading": 0.0,
+        "pitch": 0.0,
+        "roll": 0.0
+      },
+      "hookPos": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0,
+        "heading": 0.0,
+        "pitch": 0.0,
+        "roll": 0.0
+      },
+      "wheelCount": 6
+    },
+    "pos": {
+      "x": 35088.547,
+      "y": 3.4993024,
+      "z": -61350.965,
+      "heading": 0.7004219,
+      "pitch": -0.00036329016,
+      "roll": 0.000055855766
+    },
+    "navigation": {
+      "distance": 0.0,
+      "time": 0.0,
+      "speedLimit": 22.222223
+    },
+    "thresholds": {
+      "fuelWarningFactor": 0.15,
+      "adblueWarningFactor": 0.15
+    },
+    "licensePlate": "MH19BZ6118"
+  },
+  "trailer": [
+    {
+      "attached": true,
+      "id": "vehicle.scs.box",
+      "brand": "",
+      "bodyType": "curtainside",
+      "chainType": "single",
+      "licensePlate": "B TQ 4873",
+      "damage": 0.0
+    }
+  ],
+  "job": null,
+  "events": {
+    "jobFinishedCount": 0,
+    "lastFerrySourceId": "",
+    "lastFerryTargetId": "",
+    "lastTrainSourceId": "",
+    "lastTrainTargetId": "",
+    "fineAmount": 0,
+    "tollAmount": 0,
+    "fuelAmount": 0,
+    "repairAmount": 0,
+    "fineCount": 0,
+    "tollCount": 0,
+    "fuelCount": 0,
+    "repairCount": 0,
+    "jobEvent": 0
+  },
+  "timestamp": 1778259763
+}

@@ -80,10 +80,38 @@ function AuthRoute({ children }: { children: React.ReactNode }) {
 }
 
 import { useBrightness } from "@/hooks/useBrightness";
+import { usePresence } from "@/hooks/usePresence";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { supabase } from "@/integrations/supabase/client";
 
 function GlobalHooks() {
   useDiscordRpc();
   useBrightness(); 
+  
+  const { user } = useAuth();
+  usePresence(user?.id);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    // Run only in Tauri environment
+    if ((window as any).__TAURI_INTERNALS__) {
+      const unlisten = getCurrentWindow().onCloseRequested(async () => {
+        await supabase
+          .from("profiles")
+          .update({
+            last_seen: new Date().toISOString(),
+            is_online: false,
+          })
+          .eq("user_id", user.id);
+      });
+
+      return () => {
+        unlisten.then((fn) => fn());
+      };
+    }
+  }, [user?.id]);
+
   return null;
 }
 

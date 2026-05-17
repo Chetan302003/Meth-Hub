@@ -10,7 +10,11 @@ if (import.meta.env.VITE_SENTRY_DSN) {
     dsn: import.meta.env.VITE_SENTRY_DSN,
     environment: import.meta.env.MODE,
     integrations: [
-      Sentry.browserTracingIntegration(),
+      Sentry.browserTracingIntegration({
+        shouldCreateSpanForRequest: (url) => {
+          return !url.includes('ipc.localhost');
+        },
+      }),
       Sentry.replayIntegration({
         maskAllText: true,
         blockAllMedia: true,
@@ -19,6 +23,12 @@ if (import.meta.env.VITE_SENTRY_DSN) {
     tracesSampleRate: 1.0, // Adjust in production
     replaysSessionSampleRate: 0.1, 
     replaysOnErrorSampleRate: 1.0,
+    beforeBreadcrumb(breadcrumb, hint) {
+      if (breadcrumb.category === 'fetch' && breadcrumb.data?.url?.includes('ipc.localhost')) {
+        return null;
+      }
+      return breadcrumb;
+    },
   });
 }
 

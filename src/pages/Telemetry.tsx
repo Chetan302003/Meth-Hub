@@ -57,6 +57,37 @@ export default function Telemetry() {
 
     lastSyncedJobId.current = jobData.job_id;
     setSaving(true);
+
+    // Sentry: Capture diagnostic snapshot when a manually logged delivered job has 0 distance
+    if (jobData.distance_km === 0 && jobData.status === 'delivered') {
+      import('@sentry/react').then(Sentry => {
+        Sentry.captureMessage('Zero Distance Job Logged (Manual)', {
+          level: 'warning',
+          extra: {
+            job_id: jobData.job_id,
+            origin: jobData.origin_city,
+            destination: jobData.destination_city,
+            planned_distance_km: jobData.planned_distance_km,
+            distance_km: jobData.distance_km,
+            cargo_type: jobData.cargo_type,
+            fuel_consumed: jobData.fuel_consumed,
+            duration_seconds: jobData.duration_seconds,
+            had_reconnect: jobData.had_reconnect,
+            reconnect_count: jobData.reconnect_count,
+            used_ferry: jobData.used_ferry,
+            startOdometer,
+            stickyPlannedDistance,
+            liveOdometer: data?.truck?.dash?.odometer,
+            liveJobActive: data?.job?.active,
+            liveJobDistanceKm: data?.job?.distanceKm,
+            liveNavDistance: data?.truck?.navigation?.distance,
+            gameConnected: connected,
+          }
+        });
+      });
+      console.warn('Titan Omega: SENTRY WARNING — Zero distance delivered job detected (Manual). Snapshot sent.');
+    }
+
     try {
       const payload = {
         user_id: user.id,
@@ -186,7 +217,7 @@ export default function Telemetry() {
                   </div>
                   <div className="space-y-2">
                     <Button onClick={() => navigate('/log-job', { state: { telemetryData: prepareJobData() } })} variant="outline" className="w-full rounded-full gap-2 border-primary/30"><Truck size={16} /> Fill Form</Button>
-                    <Button onClick={handleAutoLogJob} disabled={saving || !isApproved} className="w-full rounded-full neon-glow gap-2">
+                    <Button onClick={handleAutoLogJob} disabled={saving || !isApproved || isLogging} className="w-full rounded-full neon-glow gap-2">
                       {saving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <CheckCircle size={16} />}
                       Log to VTC
                     </Button>

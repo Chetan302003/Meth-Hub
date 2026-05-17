@@ -12,6 +12,9 @@ import { isTauri } from '@tauri-apps/api/core';
 import { getVersion } from '@tauri-apps/api/app';
 import { Textarea } from '@/components/ui/textarea';
 import { PlayerStats } from '@/components/developer/PlayerStats';
+import * as Sentry from '@sentry/react';
+import { trackEvent } from '@/lib/aptabase';
+import { invoke } from '@tauri-apps/api/core';
 import {
   Code,
   Upload,
@@ -29,8 +32,7 @@ import {
   Calendar,
   MapPin,
   RefreshCw,
-  Trash2,
-  Clock
+  Trash2
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -312,9 +314,9 @@ export default function DeveloperPanel() {
               )}
 
               {isDesktop && (
-                <Button 
-                  variant="outline" 
-                  size="sm" 
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={() => checkForUpdates(true)}
                   disabled={isChecking}
                   className="w-full mt-2 rounded-full border-primary/30 hover:bg-primary/20"
@@ -587,34 +589,47 @@ export default function DeveloperPanel() {
         </GlassCard>
 
         <GlassCard className="mt-8 border-red-500/50 relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-4 opacity-10">
-              <Activity size={100} className="text-red-500" />
-            </div>
-            <h3 className="text-lg font-semibold text-red-400 mb-4 flex items-center gap-2">
-              <AlertTriangle size={20} />
-              Telemetry Testing
-            </h3>
-            <div className="flex gap-4">
-              <Button 
-                variant="destructive" 
-                onClick={() => { throw new Error("Sentry Test Error from Dev Panel"); }}
-              >
-                Trigger Sentry Crash
-              </Button>
-              <Button 
-                variant="outline" 
-                onClick={() => { 
-                  import("@/lib/aptabase").then(({ trackEvent }) => {
-                    trackEvent("test_event")
-                      .then(() => toast({ title: "Test Event Sent via IPC" }))
-                      .catch(err => toast({ variant: "destructive", title: "Aptabase Error", description: String(err) }));
-                  }).catch(err => toast({ variant: "destructive", title: "Import Error", description: String(err) }));
-                }}
-              >
-                Send Aptabase Event
-              </Button>
-            </div>
-          </GlassCard>
+          <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
+            <Activity size={100} className="text-red-500" />
+          </div>
+          <h3 className="text-lg font-semibold text-red-400 mb-4 flex items-center gap-2 relative z-10">
+            <AlertTriangle size={20} />
+            Telemetry Testing
+          </h3>
+          <div className="flex flex-wrap gap-4 relative z-10">
+            <Button
+              variant="destructive"
+              onClick={() => {
+                const err = new Error("Sentry Test Error from Dev Panel");
+                Sentry.captureException(err);
+                toast({ title: "Sentry Error Logged", description: "Event has been captured by Sentry." });
+              }}
+            >
+              Trigger Sentry Error
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                trackEvent("test_event")
+                  .then(() => toast({ title: "Test Event Sent", description: "Event successfully sent to Aptabase." }))
+                  .catch(err => toast({ variant: "destructive", title: "Aptabase Error", description: String(err) }));
+              }}
+            >
+              Send Aptabase Event
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                invoke('open_devtools').catch(err =>
+                  toast({ variant: "destructive", title: "DevTools Error", description: String(err) })
+                );
+              }}
+            >
+              <Code className="w-4 h-4 mr-2" />
+              Open DevTools
+            </Button>
+          </div>
+        </GlassCard>
       </div>
     </>
   );

@@ -49,7 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .select('*')
       .eq('user_id', userId)
       .maybeSingle();
-    
+
     if (error) {
       console.error('Error fetching profile:', error);
       return null;
@@ -62,7 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .from('user_roles')
       .select('role')
       .eq('user_id', userId);
-    
+
     if (error) {
       console.error('Error fetching roles:', error);
       return [];
@@ -76,7 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
-        
+
         // Defer Supabase calls with setTimeout to prevent deadlock
         if (session?.user) {
           setTimeout(async () => {
@@ -104,7 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const initAuth = async () => {
       try {
         const { data: { session: localSession } } = await supabase.auth.getSession();
-        
+
         if (!localSession) {
           setLoading(false);
           return;
@@ -126,31 +126,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // Double-check it's not a network error before wiping the session
           if (error && !error.message.toLowerCase().includes('failed to fetch')) {
             console.error("Auth validation error (revoked, expired, or logged in elsewhere):", error);
-            await supabase.auth.signOut(); 
+            await supabase.auth.signOut();
             setSession(null);
             setUser(null);
           } else if (error && error.message.toLowerCase().includes('failed to fetch')) {
-             console.warn("Network error during validation. Treating as offline.");
-             setSession(localSession);
-             setUser(localSession.user);
+            console.warn("Network error during validation. Treating as offline.");
+            setSession(localSession);
+            setUser(localSession.user);
           }
           setLoading(false);
           return;
         }
-        
+
         // If valid, apply the session and fetch profile
         setSession(localSession);
         setUser(validatedUser);
-        
+
         const [profileData, rolesData] = await Promise.all([
           fetchProfile(validatedUser.id),
           fetchRoles(validatedUser.id)
         ]);
-        
+
         setProfile(profileData);
         setRoles(rolesData);
         setLoading(false);
-        
+
         if (profileData) {
           Sentry.setUser({ id: validatedUser.id, username: profileData.username });
         }
@@ -167,8 +167,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp = async (email: string, password: string, username: string, tmpId?: string) => {
     const redirectUrl = `${window.location.origin}/`;
-    
-    const { error } = await supabase.auth.signUp({
+
+    const { data: signUpData, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -184,12 +184,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { error };
     }
 
-    // Update profile with TMP ID if provided
-    if (tmpId && user) {
+    const newUser = signUpData?.user;
+
+    // Update profile with TMP ID and Avatar if provided
+    if (tmpId && newUser) {
+      // Fetch avatar from TruckersMP
+      let avatarUrl = null;
+      try {
+        const response = await fetch(`https://api.truckersmp.com/v2/player/${tmpId}`);
+        if (response.ok) {
+          const data = await response.json();
+          avatarUrl = data.response?.avatar || null;
+        }
+      } catch (err) {
+        console.error('Failed to fetch TMP avatar during signup:', err);
+      }
+
       await supabase
         .from('profiles')
-        .update({ tmp_id: tmpId })
-        .eq('user_id', user.id);
+        .update({ 
+          tmp_id: tmpId,
+          avatar_url: avatarUrl 
+        })
+        .eq('user_id', newUser.id);
     }
 
     return { error: null };
@@ -200,7 +217,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email,
       password
     });
-    
+
     return { error };
   };
 
@@ -214,8 +231,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const hasRole = (role: AppRole) => roles.includes(role);
-  
-  const isStaff = roles.some(r => 
+
+  const isStaff = roles.some(r =>
     ['developer', 'superadmin', 'founder', 'management', 'hr', 'event_team', 'media'].includes(r)
   );
 

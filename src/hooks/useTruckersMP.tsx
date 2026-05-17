@@ -214,15 +214,24 @@ export function useTruckersMP() {
       twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
 
       return rawEvents
-        .map((e: any) => ({
-          ...e,
-          startAt: e.startAt || e.start_at,
-          meetupAt: e.meetupAt || e.meetup_at
-        }))
+        .map((e: any) => {
+          let startStr = (e.startAt || e.start_at || '').replace(' ', 'T');
+          if (startStr && !startStr.endsWith('Z') && !startStr.includes('+')) startStr += 'Z';
+          
+          let meetupStr = (e.meetupAt || e.meetup_at || '').replace(' ', 'T');
+          if (meetupStr && !meetupStr.endsWith('Z') && !meetupStr.includes('+')) meetupStr += 'Z';
+          
+          return {
+            ...e,
+            startAt: startStr,
+            meetupAt: meetupStr
+          };
+        })
         .filter((e: any) => {
-          const eventDate = new Date(e.startAt || e.start_at || '');
+          const eventDate = new Date(e.startAt);
           return eventDate >= twoMonthsAgo;
-        });
+        })
+        .sort((a: any, b: any) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime());
     } catch (err) {
       console.error('[TMP] Error fetching events:', err);
       setError('Failed to fetch events');
@@ -245,11 +254,19 @@ export function useTruckersMP() {
 
       // VTC events API nests under response key
       const rawEvents = Array.isArray(json?.response) ? json.response : [];
-      return rawEvents.map((e: any) => ({
-        ...e,
-        startAt: e.startAt || e.start_at,
-        meetupAt: e.meetupAt || e.meetup_at
-      }));
+      return rawEvents.map((e: any) => {
+        let startStr = (e.startAt || e.start_at || '').replace(' ', 'T');
+        if (startStr && !startStr.endsWith('Z') && !startStr.includes('+')) startStr += 'Z';
+        
+        let meetupStr = (e.meetupAt || e.meetup_at || '').replace(' ', 'T');
+        if (meetupStr && !meetupStr.endsWith('Z') && !meetupStr.includes('+')) meetupStr += 'Z';
+        
+        return {
+          ...e,
+          startAt: startStr,
+          meetupAt: meetupStr
+        };
+      });
     } catch (err) {
       console.error('[TMP] Error fetching VTC events:', err);
       setError('Failed to fetch VTC events');

@@ -110,7 +110,8 @@ export default function CalendarPage() {
       
       const internalEvents = supabaseResponse.data || [];
       const externalEvents = (tmpVtcEventsData || []).map((event: any) => {
-        const formattedStartTime = (event.startAt || event.start_at || new Date().toISOString()).replace(' ', 'T');
+        let formattedStartTime = (event.startAt || event.start_at || new Date().toISOString()).replace(' ', 'T');
+        if (formattedStartTime && !formattedStartTime.endsWith('Z') && !formattedStartTime.includes('+')) formattedStartTime += 'Z';
         return {
           id: `tmp-vtc-${event.id}`,
           title: event.name || 'Unknown Event',

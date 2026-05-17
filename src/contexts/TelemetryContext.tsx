@@ -5,6 +5,8 @@ import { sendDiscordWebhook } from '@/lib/discord';
 import { trackEvent } from "@/lib/aptabase";
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
+import { useQueryClient } from '@tanstack/react-query';
+import * as Sentry from '@sentry/react';
 
 const TelemetryContext = createContext<any>(null);
 
@@ -12,6 +14,7 @@ export function TelemetryProvider({ children }: { children: React.ReactNode }) {
   const { user, isApproved } = useAuth();
   const telemetry = useTelemetry();
   const logger = useAutoJobLogger();
+  const queryClient = useQueryClient();
   
   const { saveJobLocally, syncJobsToSupabase } = useLocalDb();
   const isSavingRef = useRef(false);
@@ -32,6 +35,35 @@ export function TelemetryProvider({ children }: { children: React.ReactNode }) {
         try {
           console.log(' Titan Omega: Finalizing Sync for Job:', jobData.job_id, 'Status:', jobData.status);
           lastSyncedJobId.current = jobData.job_id;
+
+          // Sentry: Capture diagnostic snapshot when a delivered job logs with 0 distance
+          if (jobData.distance_km === 0 && jobData.status === 'delivered') {
+            Sentry.captureMessage('Zero Distance Job Logged (AutoSync)', {
+              level: 'warning',
+              extra: {
+                job_id: jobData.job_id,
+                origin: jobData.origin_city,
+                destination: jobData.destination_city,
+                planned_distance_km: jobData.planned_distance_km,
+                distance_km: jobData.distance_km,
+                cargo_type: jobData.cargo_type,
+                fuel_consumed: jobData.fuel_consumed,
+                duration_seconds: jobData.duration_seconds,
+                had_reconnect: jobData.had_reconnect,
+                reconnect_count: jobData.reconnect_count,
+                used_ferry: jobData.used_ferry,
+                startOdometer: logger.startOdometer,
+                stickyPlannedDistance: logger.stickyPlannedDistance,
+                pendingJob: logger.pendingJob,
+                liveOdometer: telemetry.data?.truck?.dash?.odometer,
+                liveJobActive: telemetry.data?.job?.active,
+                liveJobDistanceKm: telemetry.data?.job?.distanceKm,
+                liveNavDistance: telemetry.data?.truck?.navigation?.distance,
+                gameConnected: telemetry.connected,
+              }
+            });
+            console.warn('Titan Omega: SENTRY WARNING — Zero distance delivered job detected. Snapshot sent.');
+          }
           
           const payload = {
             user_id: user.id,
@@ -60,6 +92,13 @@ export function TelemetryProvider({ children }: { children: React.ReactNode }) {
             is_special_transport: jobData.is_special_transport,
             auto_park: jobData.auto_park,
             auto_load: jobData.auto_load,
+            had_reconnect: jobData.had_reconnect || false,
+            reconnect_count: jobData.reconnect_count || 0,
+            used_ferry: jobData.used_ferry || false,
+            toll_amount: jobData.toll_amount || 0,
+            repair_amount: jobData.repair_amount || 0,
+            ferry_amount: jobData.ferry_amount || 0,
+            train_amount: jobData.train_amount || 0,
             notes: `Titan Omega V7.0 Auto-Log (${jobData.status})`,
           };
 
@@ -72,7 +111,7 @@ export function TelemetryProvider({ children }: { children: React.ReactNode }) {
           console.log(' Titan Omega: Job Offline Save Success:', jobData.job_id);
           toast.success(`Job Saved Locally: ${jobData.origin_city} to ${jobData.destination_city}`);
           
-          trackEvent(`job_${jobData.status === 'finished' ? 'completed' : 'cancelled'}`, {
+          trackEvent(`job_${jobData.status === 'delivered' ? 'completed' : 'cancelled'}`, {
             job_id: jobData.job_id,
             origin: jobData.origin_city,
             destination: jobData.destination_city,
@@ -107,7 +146,12 @@ export function TelemetryProvider({ children }: { children: React.ReactNode }) {
             });
           }
           
-          syncJobsToSupabase();
+          await syncJobsToSupabase();
+
+          queryClient.invalidateQueries({ queryKey: ['personalStats'] });
+          queryClient.invalidateQueries({ queryKey: ['fleetStats'] });
+          queryClient.invalidateQueries({ queryKey: ['weeklyData'] });
+          queryClient.invalidateQueries({ queryKey: ['fleetLeaderboard'] });
         } catch (err) {
           console.error('Auto-Log Error:', err);
           toast.error('Auto-sync failed. Please check My Stats later.');
@@ -117,7 +161,7 @@ export function TelemetryProvider({ children }: { children: React.ReactNode }) {
       }
     };
     autoSync();
-  }, [logger.isLogging, user, isApproved, logger.prepareJobData, telemetry.data]);
+  }, [logger.isLogging, user, isApproved, logger.prepareJobData, telemetry.data, saveJobLocally, syncJobsToSupabase, queryClient]);
 
   return (
     <TelemetryContext.Provider value={{ telemetry, logger }}>

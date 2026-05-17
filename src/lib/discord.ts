@@ -137,25 +137,47 @@ export const sendDiscordWebhook = async (
     },
     fields: fields,
     footer: {
-      text: "Provided by Aura VTC"
+      text: "Provided by Aura VTC",
+      icon_url: "https://media.discordapp.net/attachments/1069502621062086707/1118165684610732152/Aura_VTC_Logo.png"
     },
     timestamp: new Date().toISOString()
   };
 
-  try {
-    await fetch(WEBHOOK_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        username: "Aura Tracker",
-        avatar_url: "https://cdn-icons-png.flaticon.com/512/709/709790.png",
-        embeds: [embed]
-      })
-    });
-    console.log(`[Discord] Successfully posted ${type} webhook.`);
-  } catch (error) {
-    console.error('[Discord] Failed to send webhook:', error);
+  const maxRetries = 3;
+  let attempt = 0;
+  
+  while (attempt < maxRetries) {
+    try {
+      const response = await fetch(WEBHOOK_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username: "Aura Tracker",
+          avatar_url: "https://media.discordapp.net/attachments/1069502621062086707/1118165684610732152/Aura_VTC_Logo.png",
+          embeds: [embed]
+        })
+      });
+
+      if (response.ok) {
+        console.log(`[Discord] Successfully posted ${type} webhook.`);
+        return;
+      }
+      
+      if (response.status === 429) {
+        // Rate limited, wait and retry
+        const retryAfter = parseInt(response.headers.get('Retry-After') || '5000');
+        await new Promise(resolve => setTimeout(resolve, retryAfter));
+      } else {
+        throw new Error(`Discord API error: ${response.status}`);
+      }
+    } catch (error) {
+      attempt++;
+      console.error(`[Discord] Webhook attempt ${attempt} failed:`, error);
+      if (attempt < maxRetries) {
+        await new Promise(resolve => setTimeout(resolve, attempt * 2000));
+      }
+    }
   }
 };

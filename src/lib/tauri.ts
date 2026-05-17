@@ -128,6 +128,12 @@ export const sendNativeNotification = async (
 
 // Open external URL in default browser
 export const openExternal = async (url: string): Promise<void> => {
+  // Security check: only allow web protocols
+  if (!url.startsWith('https://') && !url.startsWith('http://')) {
+    console.error('[Tauri] Blocked unsafe external URL:', url);
+    return;
+  }
+
   const shellPlugin = await getTauriShell();
 
   if (!shellPlugin) {
@@ -155,8 +161,11 @@ export const saveToAppData = async (
   // Ensure directory exists
   try {
     await mkdir('', { baseDir: BaseDirectory.AppData, recursive: true });
-  } catch {
-    // Directory might already exist
+  } catch (err: any) {
+    // Only ignore "already exists" errors, log others
+    if (!err.message?.includes('already exists') && !err.toString().includes('Exists')) {
+      console.warn('[FS] mkdir warning:', err);
+    }
   }
 
   await writeTextFile(filename, content, { baseDir: BaseDirectory.AppData });
@@ -181,7 +190,7 @@ export const loadFromAppData = async (filename: string): Promise<string | null> 
 export const setOverlayMode = async (enabled: boolean): Promise<void> => {
   const appWindow = await getTauriWindow();
   if (!appWindow) return;
-  
+
   if (enabled) {
     // Compact overlay mode for gaming
     await appWindow.setAlwaysOnTop(true);

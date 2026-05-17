@@ -23,7 +23,11 @@ export function useBroadcastListener() {
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   useEffect(() => {
-    if (!notificationsEnabled) return;
+    console.log('[Broadcast] Hook mounted. Notifications enabled:', notificationsEnabled);
+    if (!notificationsEnabled) {
+      console.log('[Broadcast] Exiting early because notifications are disabled.');
+      return;
+    }
 
     const channel = supabase.channel('aura-broadcasts');
 
@@ -44,7 +48,7 @@ export function useBroadcastListener() {
         action: payload.url ? {
           label: 'View',
           onClick: () => {
-            if (payload.url?.startsWith('http')) {
+            if (payload.url?.startsWith('https://') || payload.url?.startsWith('http://')) {
               window.open(payload.url, '_blank');
             } else {
               navigate(payload.url || '/events');

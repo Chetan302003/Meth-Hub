@@ -1,15 +1,22 @@
 {
   "name": "vite_react_shadcn_ts",
   "private": true,
-  "version": "1.0.4",
+  "version": "1.0.5",
   "type": "module",
   "scripts": {
-    "dev": "taskkill /F /IM \"Aura VTC Hub.exe\" /T 2>nul & vite",
+    "dev": "vite",
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "api:dev": "cd src-tauri && cargo watch -q -x dev",
+    "api:build": "cd src-tauri && cargo build --release --no-default-features",
+    "api:dist": "cd src-tauri && cargo build --release --no-default-features --target universal-apple-darwin",
+    "package:dev": "npm run api:dev & npm run dev",
+    "package:build": "npm run api:build && npm run build",
+    "package:dist": "npm run api:dist && npm run build",
+    "package:desktop": "npm run api:build && npm run build && npm run tauri desktop"
   },
   "dependencies": {
     "@aptabase/tauri": "^0.4.1",

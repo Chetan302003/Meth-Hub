@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { GlassCard } from '@/components/layout/GlassCard';
 import { Input } from '@/components/ui/input';
 import { usePresenceStore } from '@/stores/appStore';
-import { Search, MapPin, DollarSign, Package, Fuel, ExternalLink, Clock, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, MapPin, DollarSign, Package, Fuel, ExternalLink, Clock, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatDistanceToNow, format } from 'date-fns';
 
@@ -12,11 +12,13 @@ interface PlayerStat {
   username: string;
   tmp_id: string | null;
   avatar_url: string | null;
-  last_active: string;
+  last_active: string | null;
+  is_online: boolean;
   total_distance: number;
   total_income: number;
   total_deliveries: number;
   total_fuel: number;
+  total_damage_percent: number;
 }
 
 export function PlayerStats() {
@@ -36,7 +38,7 @@ export function PlayerStats() {
       try {
         const [profilesRes, jobsRes] = await Promise.all([
           supabase.from('profiles').select('*'),
-          supabase.from('job_logs').select('user_id, distance_km, income, fuel_consumed, status, delivery_date')
+          supabase.from('job_logs').select('user_id, distance_km, income, fuel_consumed, status, delivery_date, damage_percent')
         ]);
 
         const profiles = (profilesRes.data || []) as any[];
@@ -50,11 +52,13 @@ export function PlayerStats() {
             username: p.username,
             tmp_id: p.tmp_id,
             avatar_url: p.avatar_url,
-            last_active: p.updated_at,
+            last_active: p.last_seen || p.updated_at,
+            is_online: !!p.is_online,
             total_distance: 0,
             total_income: 0,
             total_deliveries: 0,
-            total_fuel: 0
+            total_fuel: 0,
+            total_damage_percent: 0
           };
         });
 
@@ -64,10 +68,11 @@ export function PlayerStats() {
             aggregated[j.user_id].total_income += Number(j.income || 0);
             aggregated[j.user_id].total_fuel += Number(j.fuel_consumed || 0);
             aggregated[j.user_id].total_deliveries += 1;
+            aggregated[j.user_id].total_damage_percent += Number(j.damage_percent || 0);
 
-            // update last active if delivery date is more recent
-            if (j.delivery_date) {
-              const currentLastActive = new Date(aggregated[j.user_id].last_active).getTime();
+            // update last active if delivery date is more recent and we don't have a recent last_seen
+            if (j.delivery_date && !profiles.find(p => p.user_id === j.user_id)?.last_seen) {
+              const currentLastActive = aggregated[j.user_id].last_active ? new Date(aggregated[j.user_id].last_active!).getTime() : 0;
               const jobDeliveryDate = new Date(j.delivery_date).getTime();
               if (jobDeliveryDate > currentLastActive) {
                 aggregated[j.user_id].last_active = j.delivery_date;
@@ -171,13 +176,15 @@ export function PlayerStats() {
                 <th className="text-right py-3 px-4 font-medium text-sm text-muted-foreground">Income</th>
                 <th className="text-right py-3 px-4 font-medium text-sm text-muted-foreground">Deliveries</th>
                 <th className="text-right py-3 px-4 font-medium text-sm text-muted-foreground">Fuel</th>
+                <th className="text-right py-3 px-4 font-medium text-sm text-muted-foreground">Damage</th>
                 <th className="text-center py-3 px-4 font-medium text-sm text-muted-foreground">Status / Last Active</th>
                 <th className="py-3 px-4 flex justify-end"></th>
               </tr>
             </thead>
             <tbody>
               {filteredStats.map(stat => {
-                const isOnline = onlineUsers.has(stat.user_id);
+                // Determine online status combining the DB field and the real-time presence store
+                const isOnline = stat.is_online || onlineUsers.has(stat.user_id);
                 return (
                   <React.Fragment key={stat.user_id}>
                     <tr
@@ -234,6 +241,12 @@ export function PlayerStats() {
                           {formatNumber(stat.total_fuel)} L
                         </span>
                       </td>
+                      <td className="py-4 px-4 text-right">
+                        <span className={`flex items-center justify-end gap-1.5 ${(stat.total_deliveries > 0 ? stat.total_damage_percent / stat.total_deliveries : 0) > 0 ? 'text-red-400' : 'text-green-400'}`}>
+                          <AlertTriangle size={14} className="opacity-70" />
+                          {(stat.total_deliveries > 0 ? (stat.total_damage_percent / stat.total_deliveries) : 0).toFixed(1)}%
+                        </span>
+                      </td>
                       <td className="py-4 px-4 text-center">
                         <div className="flex flex-col items-center justify-center text-xs whitespace-nowrap">
                           {isOnline ? (
@@ -242,12 +255,12 @@ export function PlayerStats() {
                                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                                 <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
                               </span>
-                              Online
+                              Online now
                             </span>
                           ) : (
                             <span className="flex items-center gap-1 text-muted-foreground">
                               <Clock size={12} />
-                              {stat.last_active ? formatDistanceToNow(new Date(stat.last_active), { addSuffix: true }) : 'Never'}
+                              {stat.last_active ? `${formatDistanceToNow(new Date(stat.last_active))} ago` : 'Last seen unknown'}
                             </span>
                           )}
                         </div>
@@ -288,6 +301,11 @@ export function PlayerStats() {
                                       <span className="flex items-center gap-1"><Package size={12} /> {job.cargo}</span>
                                       <span className="flex items-center gap-1 text-cyan"><MapPin size={12} /> {job.distance_km} km</span>
                                       <span className="flex items-center gap-1 text-amber"><DollarSign size={12} /> {job.income}</span>
+                                      {job.damage_percent !== undefined && job.damage_percent !== null && (
+                                        <span className={`flex items-center gap-1 ${job.damage_percent > 0 ? 'text-red-400' : 'text-green-400'}`}>
+                                          <AlertTriangle size={12} /> {Number(job.damage_percent).toFixed(1)}%
+                                        </span>
+                                      )}
                                       <span className={`flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-[10px] uppercase font-bold ${job.status === 'delivered' ? 'bg-green-500/20 text-green-400' :
                                         job.status === 'cancelled' ? 'bg-rose-500/20 text-rose-400' :
                                           'bg-cyan-500/20 text-cyan-400'

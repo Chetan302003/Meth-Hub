@@ -18,17 +18,56 @@ const MAX_TRAILERS: usize = 3;
 const MAX_HSHIFTER_SLOTS: usize = 32;
 
 #[repr(C, packed)]
-#[derive(Copy, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AuraPlacement {
+#[derive(Copy, Clone)]
+struct AuraPlacementRaw {
     pub x: f32, pub y: f32, pub z: f32,
     pub heading: f32, pub pitch: f32, pub roll: f32,
 }
 
-#[repr(C, packed)]
+#[repr(C)]
 #[derive(Copy, Clone, Serialize)]
-pub struct AuraFVector {
+#[serde(rename_all = "camelCase")]
+pub struct AuraPlacement {
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+    pub heading: f32,
+    pub pitch: f32,
+    pub roll: f32,
+}
+
+impl From<AuraPlacementRaw> for AuraPlacement {
+    fn from(raw: AuraPlacementRaw) -> Self {
+        Self {
+            x: raw.x,
+            y: raw.y,
+            z: raw.z,
+            heading: raw.heading,
+            pitch: raw.pitch,
+            roll: raw.roll,
+        }
+    }
+}
+
+#[repr(C, packed)]
+#[derive(Copy, Clone)]
+struct AuraFVectorRaw {
     pub x: f32, pub y: f32, pub z: f32,
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AuraFVector {
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+}
+
+impl From<AuraFVectorRaw> for AuraFVector {
+    fn from(raw: AuraFVectorRaw) -> Self {
+        Self { x: raw.x, y: raw.y, z: raw.z }
+    }
 }
 
 #[repr(C, packed)]
@@ -48,21 +87,21 @@ struct AuraTelemetryRaw {
     mp_time_offset: i32,
 
     // --- Live map ---
-    truck_placement: AuraPlacement,
-    trailer_placement: [AuraPlacement; MAX_TRAILERS],
-    cabin_placement: AuraPlacement,
-    head_placement: AuraPlacement,
-    hook_placement: AuraPlacement,
+    truck_placement: AuraPlacementRaw,
+    trailer_placement: [AuraPlacementRaw; MAX_TRAILERS],
+    cabin_placement: AuraPlacementRaw,
+    head_placement: AuraPlacementRaw,
+    hook_placement: AuraPlacementRaw,
 
     // --- Truck physics ---
-    vel_linear: AuraFVector,
-    vel_angular: AuraFVector,
-    acc_linear: AuraFVector,
-    acc_angular: AuraFVector,
-    cabin_offset: AuraFVector,
-    cabin_vel_angular: AuraFVector,
-    cabin_acc_angular: AuraFVector,
-    head_offset: AuraFVector,
+    vel_linear: AuraFVectorRaw,
+    vel_angular: AuraFVectorRaw,
+    acc_linear: AuraFVectorRaw,
+    acc_angular: AuraFVectorRaw,
+    cabin_offset: AuraFVectorRaw,
+    cabin_vel_angular: AuraFVectorRaw,
+    cabin_acc_angular: AuraFVectorRaw,
+    head_offset: AuraFVectorRaw,
 
     // --- Truck dashboard ---
     speed: f32,
@@ -200,10 +239,10 @@ struct AuraTelemetryRaw {
     trailer_body_type: [[u8; 32]; MAX_TRAILERS],
     trailer_chain_type: [[u8; 32]; MAX_TRAILERS],
     trailer_plate: [[u8; 16]; MAX_TRAILERS],
-    trailer_vel_linear: [AuraFVector; MAX_TRAILERS],
-    trailer_vel_angular: [AuraFVector; MAX_TRAILERS],
-    trailer_acc_linear: [AuraFVector; MAX_TRAILERS],
-    trailer_acc_angular: [AuraFVector; MAX_TRAILERS],
+    trailer_vel_linear: [AuraFVectorRaw; MAX_TRAILERS],
+    trailer_vel_angular: [AuraFVectorRaw; MAX_TRAILERS],
+    trailer_acc_linear: [AuraFVectorRaw; MAX_TRAILERS],
+    trailer_acc_angular: [AuraFVectorRaw; MAX_TRAILERS],
 
     // --- Trailer per-wheel ---
     trailer_wheel_on_ground: [u8; MAX_WHEELS],
@@ -510,15 +549,40 @@ pub fn get_telemetry_data() -> Result<TelemetryData, String> {
 
         let mut trailers = Vec::new();
         for i in 0..MAX_TRAILERS {
-            if raw.trailer_attached[i] == 1 {
+            let id = read_cstr(&raw.trailer_id[i]);
+            let attached_flag = { raw.trailer_attached[i] };
+            
+            // The C++ plugin doesn't always set trailer_attached and doesn't clear trailer_id when detached.
+            // trailer_placement is also always zero. 
+            // We check multiple physics indicators (substance, on_ground, suspension) to detect presence.
+            let mut has_physics = false;
+            // Check the first 6 wheels of this trailer slot
+            for w in 0..6 {
+                let wheel_idx = i * 6 + w;
+                if wheel_idx < MAX_WHEELS {
+                    if { raw.trailer_wheel_substance[wheel_idx] } > 0 
+                        || { raw.trailer_wheel_on_ground[wheel_idx] } > 0 
+                        || { raw.trailer_wheel_susp[wheel_idx] } > 0.0 {
+                        has_physics = true;
+                        break;
+                    }
+                }
+            }
+
+            // If we have an active job and this is the first trailer slot, it's definitely attached
+            let is_first_trailer_with_job = i == 0 && raw.job_active == 1 && !id.is_empty();
+
+            let is_attached = attached_flag == 1 || is_first_trailer_with_job || (has_physics && !id.is_empty());
+
+            if is_attached {
                 trailers.push(TrailerInfo {
                     attached: true,
-                    id: read_cstr(&raw.trailer_id[i]),
+                    id,
                     brand: read_cstr(&raw.trailer_brand[i]),
                     body_type: read_cstr(&raw.trailer_body_type[i]),
                     chain_type: read_cstr(&raw.trailer_chain_type[i]),
                     license_plate: read_cstr(&raw.trailer_plate[i]),
-                    damage: raw.trailer_wear_chassis[i] * 100.0,
+                    damage: { raw.trailer_wear_chassis[i] } * 100.0,
                 });
             }
         }
@@ -605,12 +669,12 @@ pub fn get_telemetry_data() -> Result<TelemetryData, String> {
                     cruise_control: raw.cruise_control_on == 1,
                 },
                 geometry: GeometryInfo {
-                    cabin_pos: raw.cabin_placement,
-                    head_pos: raw.head_placement,
-                    hook_pos: raw.hook_placement,
+                    cabin_pos: AuraPlacement::from(raw.cabin_placement),
+                    head_pos: AuraPlacement::from(raw.head_placement),
+                    hook_pos: AuraPlacement::from(raw.hook_placement),
                     wheel_count: raw.wheel_count, 
                 },
-                pos: raw.truck_placement, // Map main truck pos
+                pos: AuraPlacement::from(raw.truck_placement), // Map main truck pos
                 navigation: NavigationInfo {
                     distance: raw.navigation_distance,
                     time: raw.navigation_time,

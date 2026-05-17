@@ -15,6 +15,14 @@ static GAME_CLOSING: LazyLock<AtomicBool> = LazyLock::new(|| AtomicBool::new(fal
 fn reset_telemetry_lock() {
     GAME_CLOSING.store(false, Ordering::Relaxed);
 }
+
+#[tauri::command]
+fn open_devtools(app: tauri::AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        window.open_devtools();
+    }
+}
+
 #[tauri::command]
 fn install_telemetry_plugin(app: AppHandle, custom_path: Option<String>) -> Result<String, String> {
     // Note: The dll must be bundled in `src-tauri/resources/scs-telemetry.dll`
@@ -77,11 +85,13 @@ pub fn run() {
                     tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::LogDir { file_name: None }),
                     tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Webview),
                 ])
+                .level(log::LevelFilter::Info)
                 .build(),
         )
         .invoke_handler(tauri::generate_handler![
             telemetry::get_telemetry_data, 
             reset_telemetry_lock,
+            open_devtools,
             install_telemetry_plugin,
             rpc::init_discord_rpc,
             rpc::set_discord_rpc,
@@ -89,7 +99,20 @@ pub fn run() {
         ])
         .setup(|app| {
             // Track an event immediately on startup to verify Rust connection
-            app.track_event("rust_backend_started", None);
+            let _ = app.track_event("rust_backend_started", None);
+
+            #[cfg(debug_assertions)]
+            {
+                if let Some(window) = app.get_webview_window("main") {
+                    println!("DEBUG: 'main' window FOUND!");
+                } else {
+                    println!("DEBUG: 'main' window NOT FOUND!");
+                    // print all windows
+                    for (label, _w) in app.webview_windows() {
+                        println!("DEBUG: found window with label: {}", label);
+                    }
+                }
+            }
 
             // Create Tray Menu
             let show_i = MenuItem::with_id(app, "show", "Show", true, None::<&str>)?;
