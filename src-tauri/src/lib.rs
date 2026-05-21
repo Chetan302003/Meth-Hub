@@ -66,6 +66,9 @@ use tauri::{
 };
 use tauri_plugin_aptabase::EventTracker;
 
+#[allow(dead_code)]
+struct TrayState(tauri::tray::TrayIcon);
+
 pub fn run() {
     tauri::Builder::default()
         .manage(rpc::DiscordState(std::sync::Mutex::new(None)))
@@ -78,6 +81,12 @@ pub fn run() {
         .plugin(tauri_plugin_aptabase::Builder::new(env!("VITE_APTABASE_APP_KEY")).build())
         .plugin(tauri_plugin_sql::Builder::default().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }))
         .plugin(
             tauri_plugin_log::Builder::default()
                 .targets([
@@ -103,7 +112,7 @@ pub fn run() {
 
             #[cfg(debug_assertions)]
             {
-                if let Some(window) = app.get_webview_window("main") {
+                if let Some(_window) = app.get_webview_window("main") {
                     println!("DEBUG: 'main' window FOUND!");
                 } else {
                     println!("DEBUG: 'main' window NOT FOUND!");
@@ -120,7 +129,7 @@ pub fn run() {
             let menu = Menu::with_items(app, &[&show_i, &quit_i])?;
 
             // Build Tray Icon
-            let _tray = TrayIconBuilder::new()
+            let tray = TrayIconBuilder::with_id("aura-tray")
                 .icon(app.default_window_icon().unwrap().clone())
                 .menu(&menu)
                 .show_menu_on_left_click(false)
@@ -151,6 +160,8 @@ pub fn run() {
                     }
                 })
                 .build(app)?;
+
+            app.manage(TrayState(tray));
 
             Ok(())
         })
