@@ -22,13 +22,22 @@
     "updater:allow-check",
     "http:default",
     "http:allow-fetch-read-body",
+    "aptabase:allow-track-event",
     {
       "identifier": "http:allow-fetch",
       "allow": [
-        { "url": "https://*.supabase.co/**" },
-        { "url": "https://*.truckersmp.com/**" },
-        { "url": "https://**" },
-        { "url": "http://**" }
+        {
+          "url": "https://*.supabase.co/**"
+        },
+        {
+          "url": "https://*.truckersmp.com/**"
+        },
+        {
+          "url": "https://**"
+        },
+        {
+          "url": "http://**"
+        }
       ]
     },
     "sql:default",
@@ -40,28 +49,47 @@
     "fs:allow-applocaldata-meta",
     {
       "identifier": "fs:allow-mkdir",
-      "allow": [{ "path": "**" }]
+      "allow": [
+        {
+          "path": "**"
+        }
+      ]
     },
     {
       "identifier": "fs:allow-exists",
-      "allow": [{ "path": "**" }]
+      "allow": [
+        {
+          "path": "**"
+        }
+      ]
     },
     {
       "identifier": "fs:allow-copy-file",
-      "allow": [{ "path": "**" }]
+      "allow": [
+        {
+          "path": "**"
+        }
+      ]
     },
     {
       "identifier": "fs:allow-read",
-      "allow": [{ "path": "**" }]
+      "allow": [
+        {
+          "path": "**"
+        }
+      ]
     },
     {
       "identifier": "fs:allow-write",
-      "allow": [{ "path": "**" }]
+      "allow": [
+        {
+          "path": "**"
+        }
+      ]
     },
     "fs:allow-resource-read",
     "fs:allow-resource-meta",
     "fs:scope-applocaldata-recursive",
-    "dialog:allow-open",
-    "aptabase:allow-track-event"
+    "dialog:allow-open"
   ]
 }
