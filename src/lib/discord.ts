@@ -137,7 +137,7 @@ export const sendDiscordWebhook = async (
     },
     fields: fields,
     footer: {
-      text: "Provided by Aura VTC",
+      text: "Provided by METH VTC",
       icon_url: "https://media.discordapp.net/attachments/1069502621062086707/1118165684610732152/Aura_VTC_Logo.png"
     },
     timestamp: new Date().toISOString()
@@ -154,7 +154,7 @@ export const sendDiscordWebhook = async (
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          username: "Aura Tracker",
+          username: "METH Tracker",
           avatar_url: "https://media.discordapp.net/attachments/1069502621062086707/1118165684610732152/Aura_VTC_Logo.png",
           embeds: [embed]
         })

@@ -13,7 +13,7 @@ export function useAutoUpdater() {
     if (!isTauri()) {
       if (manual) {
         toast.error('Browser Not Supported', {
-          description: 'Auto-updates are only available in the Aura Desktop App.',
+          description: 'Auto-updates are only available in the METH Desktop App.',
         });
       }
       return;
@@ -22,20 +22,20 @@ export function useAutoUpdater() {
     try {
       setIsChecking(true);
       const update = await check();
-      
+
       if (update) {
         setUpdateAvailable(true);
         console.log(`Update available: ${update.version}`);
-        
+
         toast('Update Available!', {
-          description: `Aura VTC Hub v${update.version} is ready to install.`,
+          description: `METH VTC Hub v${update.version} is ready to install.`,
           action: {
             label: 'Update Now',
             onClick: async () => {
               try {
                 let downloaded = 0;
                 let contentLength = 0;
-                
+
                 await update.downloadAndInstall((event) => {
                   switch (event.event) {
                     case 'Started':
@@ -67,7 +67,7 @@ export function useAutoUpdater() {
         });
       } else if (manual) {
         toast.success('App Up-to-Date', {
-          description: 'You are running the latest version of Aura VTC Hub.',
+          description: 'You are running the latest version of METH VTC Hub.',
         });
       }
     } catch (error) {
@@ -88,19 +88,19 @@ export function useAutoUpdater() {
       if (!isTauri()) return;
       try {
         const currentVersion = await getVersion();
-        const storedVersion = localStorage.getItem('aura-app-version');
-        
+        const storedVersion = localStorage.getItem('meth-app-version');
+
         // If we have a stored version, and it's physically different than what Tauri is currently running, we just updated!
         if (storedVersion && storedVersion !== currentVersion) {
           toast.success(`Update Successfully Installed! ✨`, {
-            description: `You are now rocking Aura VTC Hub v${currentVersion}!`,
+            description: `You are now rocking METH VTC Hub v${currentVersion}!`,
             duration: 8000
           });
         }
-        
+
         // Sync the current baseline into local storage for the next run
         if (storedVersion !== currentVersion) {
-          localStorage.setItem('aura-app-version', currentVersion);
+          localStorage.setItem('meth-app-version', currentVersion);
         }
       } catch (e) {
         console.error('Failed to check post-update status', e);

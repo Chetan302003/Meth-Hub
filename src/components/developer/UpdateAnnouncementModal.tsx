@@ -90,7 +90,7 @@ export function UpdateAnnouncementModal() {
             What's New in v{currentVersion}
           </DialogTitle>
           <DialogDescription>
-            Aura VTC Hub has just been updated! Here are the changes.
+            METH VTC Hub has just been updated! Here are the changes.
           </DialogDescription>
         </DialogHeader>
 

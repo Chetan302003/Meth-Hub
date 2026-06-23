@@ -511,7 +511,7 @@ export function useAutoJobLogger() {
         // Delay webhook until GPS actually establishes the route to prevent "0 km (Planned)"
         if (currentPlanned > 0 && jobIdRef.current && user?.user_metadata?.username && lastDiscordCargoId.current !== data.job.cargoId) {
           lastDiscordCargoId.current = data.job.cargoId;
-          const avatarUrl = user.user_metadata.avatar_url || "https://postimg.cc/G9xHn83L";
+          const avatarUrl = user.user_metadata.avatar_url || "https://i.ibb.co/wNRBF3zj/logo-png.png";
 
           trackEvent('job_started', {
             job_id: jobIdRef.current,

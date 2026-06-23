@@ -29,7 +29,7 @@ export function useBroadcastListener() {
       return;
     }
 
-    const channel = supabase.channel('aura-broadcasts');
+    const channel = supabase.channel('realtime-broadcasts');
 
     channel.on('broadcast', { event: 'event-alert' }, ({ payload }: { payload: BroadcastPayload }) => {
       console.log('[Broadcast] Received event-alert:', payload);

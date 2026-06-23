@@ -15,7 +15,7 @@ export function TelemetryProvider({ children }: { children: React.ReactNode }) {
   const telemetry = useTelemetry();
   const logger = useAutoJobLogger();
   const queryClient = useQueryClient();
-  
+
   const { saveJobLocally, syncJobsToSupabase } = useLocalDb();
   const isSavingRef = useRef(false);
   const lastSyncedJobId = useRef<string | null>(null);
@@ -26,12 +26,12 @@ export function TelemetryProvider({ children }: { children: React.ReactNode }) {
       if (logger.isLogging && user && isApproved && !isSavingRef.current) {
         isSavingRef.current = true;
         const jobData = logger.prepareJobData();
-        
+
         if (!jobData || lastSyncedJobId.current === jobData.job_id) {
           isSavingRef.current = false;
           return;
         }
-        
+
         try {
           console.log(' Titan Omega: Finalizing Sync for Job:', jobData.job_id, 'Status:', jobData.status);
           lastSyncedJobId.current = jobData.job_id;
@@ -64,7 +64,7 @@ export function TelemetryProvider({ children }: { children: React.ReactNode }) {
             });
             console.warn('Titan Omega: SENTRY WARNING — Zero distance delivered job detected. Snapshot sent.');
           }
-          
+
           const payload = {
             user_id: user.id,
             job_id: jobData.job_id,
@@ -110,7 +110,7 @@ export function TelemetryProvider({ children }: { children: React.ReactNode }) {
 
           console.log(' Titan Omega: Job Offline Save Success:', jobData.job_id);
           toast.success(`Job Saved Locally: ${jobData.origin_city} to ${jobData.destination_city}`);
-          
+
           trackEvent(`job_${jobData.status === 'delivered' ? 'completed' : 'cancelled'}`, {
             job_id: jobData.job_id,
             origin: jobData.origin_city,
@@ -121,7 +121,7 @@ export function TelemetryProvider({ children }: { children: React.ReactNode }) {
 
           if (user?.user_metadata?.username && lastWebhookSentId.current !== jobData.job_id) {
             lastWebhookSentId.current = jobData.job_id;
-            const avatarUrl = user.user_metadata.avatar_url || "https://i.imgur.com/34M1f0S.png";
+            const avatarUrl = user.user_metadata.avatar_url || "https://i.ibb.co/wNRBF3zj/logo-png.png";
 
             sendDiscordWebhook('job_completed', {
               username: user.user_metadata.username,
@@ -145,7 +145,7 @@ export function TelemetryProvider({ children }: { children: React.ReactNode }) {
               status: jobData.status,
             });
           }
-          
+
           await syncJobsToSupabase();
 
           queryClient.invalidateQueries({ queryKey: ['personalStats'] });

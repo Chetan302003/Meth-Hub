@@ -174,7 +174,7 @@ export function AppLayout({ children }: AppLayoutProps) {
         {/* Logo */}
         <div className="p-4 sm:p-6 lg:pt-0">
           <h1 className="text-xl sm:text-2xl font-bold gradient-text neon-text">
-            Aura VTC Hub
+            METH VTC Hub
           </h1>
           <p className="text-muted-foreground text-xs sm:text-sm mt-1">Fleet Management</p>
         </div>
@@ -260,7 +260,7 @@ export function AppLayout({ children }: AppLayoutProps) {
           <div className="bg-primary/20 border-b border-primary/30 text-primary px-4 sm:px-6 py-3 flex items-center justify-between text-sm backdrop-blur-md shadow-sm z-20 sticky top-0 animate-in slide-in-from-top-4">
             <div className="flex items-center gap-2.5">
               <Rocket size={18} className="animate-pulse" />
-              <span className="font-bold tracking-tight">Aura VTC Hub v{dbVersion} is available!</span>
+              <span className="font-bold tracking-tight">METH VTC Hub v{dbVersion} is available!</span>
               <span className="hidden xl:inline text-primary/70 ml-2">Click update to experience the latest features.</span>
             </div>
             <Button size="sm" onClick={() => checkForUpdates(true)} disabled={isChecking} className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-full h-8 px-5 font-semibold text-xs transition-transform hover:scale-105">
@@ -277,7 +277,7 @@ export function AppLayout({ children }: AppLayoutProps) {
         {/* Footer - pinned at bottom */}
         <footer className="shrink-0 px-4 sm:px-6 lg:px-8 py-2 border-t border-border/30 bg-background/95 backdrop-blur-sm">
           <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-1 text-[11px] text-muted-foreground/50">
-            <span>© {new Date().getFullYear()} Aura VTC · All rights reserved</span>
+            <span>© {new Date().getFullYear()} METH VTC · All rights reserved</span>
             <span>Designed & Developed by <a href="#" onClick={(e) => {
               e.preventDefault();
               if (isTauri()) {

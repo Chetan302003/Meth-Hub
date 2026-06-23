@@ -830,7 +830,7 @@ function VTCEventCard({
                     onClick={async () => {
                         const channel = supabase.channel('aura-broadcasts');
                         const result = await channel.httpSend('event-alert', {
-                          title: `🚛 Aura VTC: ${event.title}`,
+                          title: `🚛 METH VTC: ${event.title}`,
                           body: `${event.departure_city} → ${event.arrival_city} — ${format(parseISO(event.start_time), 'MMM dd, HH:mm')}`,
                           url: '/events',
                           sentBy: profile?.username || 'Staff',

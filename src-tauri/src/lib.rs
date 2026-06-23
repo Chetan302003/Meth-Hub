@@ -25,7 +25,7 @@ fn open_devtools(app: tauri::AppHandle) {
 
 #[tauri::command]
 fn install_telemetry_plugin(app: AppHandle, custom_path: Option<String>) -> Result<String, String> {
-    // Note: The dll must be bundled in `src-tauri/resources/scs-telemetry.dll`
+    // Note: The dll must be bundled in `src-tauri/resources/meth_hub_telemetry.dll`
     let resource_path = app.path().resource_dir()
         .map_err(|e| format!("Failed to resolve resource directory: {}", e))?
         .join("scs-telemetry.dll");
@@ -129,7 +129,7 @@ pub fn run() {
             let menu = Menu::with_items(app, &[&show_i, &quit_i])?;
 
             // Build Tray Icon
-            let tray = TrayIconBuilder::with_id("aura-tray")
+            let tray = TrayIconBuilder::with_id("meth-tray")
                 .icon(app.default_window_icon().unwrap().clone())
                 .menu(&menu)
                 .show_menu_on_left_click(false)

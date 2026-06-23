@@ -112,7 +112,7 @@ export default function Auth() {
     } else {
       toast({
         title: 'Welcome back!',
-        description: 'Successfully logged in to Aura VTC Hub.',
+        description: 'Successfully logged in to METH VTC Hub.',
       });
       navigate('/dashboard');
     }
@@ -230,7 +230,7 @@ export default function Auth() {
             <Truck className="w-10 h-10 text-primary" />
           </div>
           {/* ===== END LOGO PLACEHOLDER ===== */}
-          <h1 className="text-3xl font-bold text-white tracking-wide">AURA VTC HUB</h1>
+          <h1 className="text-3xl font-bold text-white tracking-wide">METH VTC HUB</h1>
           <p className="text-muted-foreground mt-2">Fleet Management System</p>
         </div>
 
@@ -275,7 +275,7 @@ export default function Auth() {
                 <Input
                   id="email"
                   type="email"
-                  placeholder="driver@aura-vtc.com"
+                  placeholder="driver@meth-vtc.com"
                   className="glass-input"
                   {...loginForm.register('email')}
                 />
@@ -347,7 +347,7 @@ export default function Auth() {
                 <Input
                   id="signup-email"
                   type="email"
-                  placeholder="driver@aura-vtc.com"
+                  placeholder="driver@meth-vtc.com"
                   className="glass-input"
                   {...signupForm.register('email')}
                 />
@@ -432,7 +432,7 @@ export default function Auth() {
                 <Input
                   id="reset-email"
                   type="email"
-                  placeholder="driver@aura-vtc.com"
+                  placeholder="driver@meth-vtc.com"
                   className="glass-input"
                   {...resetPasswordForm.register('email')}
                 />

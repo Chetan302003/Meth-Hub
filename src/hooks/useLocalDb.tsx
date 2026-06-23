@@ -19,7 +19,7 @@ export function useLocalDb() {
   const initDb = async () => {
     if (dbInstance) return dbInstance;
     try {
-      const db = await Database.load('sqlite:aura_logs.db');
+      const db = await Database.load('sqlite:meth_logs.db');
       await db.execute(`
         CREATE TABLE IF NOT EXISTS job_logs_queue (
           id TEXT PRIMARY KEY,
@@ -50,7 +50,7 @@ export function useLocalDb() {
          VALUES ($1, $2, 0, $3)`,
         [jobId, jobJson, timestamp]
       );
-      
+
       console.log(`[Offline Sync] Job ${jobId} saved securely to local DB.`);
       return true;
     } catch (e) {
@@ -94,7 +94,7 @@ export function useLocalDb() {
           }
 
           const rawJob = JSON.parse(job.job_data);
-          
+
           const supabasePayload = {
             id: rawJob.job_id,
             user_id: rawJob.user_id,
@@ -132,7 +132,7 @@ export function useLocalDb() {
             ferry_amount: rawJob.ferry_amount || 0,
             train_amount: rawJob.train_amount || 0,
           };
-          
+
           const { error } = await supabase
             .from('job_logs')
             .upsert(supabasePayload, { onConflict: 'id' });

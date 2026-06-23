@@ -17,9 +17,9 @@ import { resolveResource } from '@tauri-apps/api/path';
 import { getVersion } from '@tauri-apps/api/app';
 import { exists, copyFile, mkdir } from '@tauri-apps/plugin-fs';
 import { open } from '@tauri-apps/plugin-dialog';
-import { 
-  User, 
-  Mail, 
+import {
+  User,
+  Mail,
   Truck,
   Save,
   Loader2,
@@ -45,10 +45,10 @@ export default function Settings() {
   const [tmpId, setTmpId] = useState(profile?.tmp_id || '');
   const { toast } = useToast();
   const { isChecking, checkForUpdates } = useAutoUpdater();
-  
+
   // Zustand store for UI settings
-  const { 
-    notificationsEnabled, 
+  const {
+    notificationsEnabled,
     setNotificationsEnabled,
     overlayMode,
     setOverlayMode: setOverlayModeStore,
@@ -63,7 +63,7 @@ export default function Settings() {
 
   useEffect(() => {
     setIsDesktop(isTauri());
-    
+
     if (isTauri()) {
       getVersion().then(setAppVersion);
     }
@@ -89,8 +89,8 @@ export default function Settings() {
       }
 
       // Resolve the bundled DLL from app resources
-      const sourceDll = await resolveResource('resources/aura_hub_telemetry.dll');
-      const destPath = `${pluginDir}\\aura_hub_telemetry.dll`;
+      const sourceDll = await resolveResource('resources/meth_hub_telemetry.dll');
+      const destPath = `${pluginDir}\\meth_hub_telemetry.dll`;
 
       await copyFile(sourceDll, destPath);
 
@@ -115,7 +115,7 @@ export default function Settings() {
     if (!user) return;
 
     setLoading(true);
-    
+
     // Fetch avatar from TruckersMP if ID is provided
     let avatarUrl = profile?.avatar_url || null;
     if (tmpId && tmpId !== profile?.tmp_id) {
@@ -132,7 +132,7 @@ export default function Settings() {
 
     const { error } = await supabase
       .from('profiles')
-      .update({ 
+      .update({
         tmp_id: tmpId || null,
         avatar_url: avatarUrl
       })
@@ -155,7 +155,7 @@ export default function Settings() {
 
   const handleNotificationToggle = async (enabled: boolean) => {
     setNotificationsEnabled(enabled);
-    
+
     if (enabled && 'Notification' in window && Notification.permission === 'default') {
       const permission = await Notification.requestPermission();
       if (permission !== 'granted') {
@@ -168,27 +168,27 @@ export default function Settings() {
       }
     }
   };
-// HANDLER: Always on Top (Actually triggers Windows behavior)
+  // HANDLER: Always on Top (Actually triggers Windows behavior)
   const handleAlwaysOnTopToggle = async (enabled: boolean) => {
     setAlwaysOnTopStore(enabled);
     if (isTauri()) {
-    await setAlwaysOnTop(enabled);
-    toast({
-      title: enabled ? 'Always on Top Enabled' : 'Always on Top Disabled',
-      description: enabled ? 'Hub will stay above other windows.' : 'Hub will behave normally.',
-    });
-  }
+      await setAlwaysOnTop(enabled);
+      toast({
+        title: enabled ? 'Always on Top Enabled' : 'Always on Top Disabled',
+        description: enabled ? 'Hub will stay above other windows.' : 'Hub will behave normally.',
+      });
+    }
   };
-// HANDLER: Overlay Mode (Triggers layout change)
+  // HANDLER: Overlay Mode (Triggers layout change)
   const handleOverlayModeToggle = async (enabled: boolean) => {
     setOverlayModeStore(enabled);
     if (isTauri()) {
-    await setOverlayMode(enabled);
-    toast({
-      title: enabled ? 'Overlay Mode Enabled' : 'Overlay Mode Disabled',
-      description: enabled ? 'Compact mode for gaming.' : 'Full window mode.',
-    });
-  }
+      await setOverlayMode(enabled);
+      toast({
+        title: enabled ? 'Overlay Mode Enabled' : 'Overlay Mode Disabled',
+        description: enabled ? 'Compact mode for gaming.' : 'Full window mode.',
+      });
+    }
   };
 
   return (
@@ -382,9 +382,9 @@ export default function Settings() {
                     <p className="font-medium text-sm">App Version: <span className="text-primary font-mono">{appVersion || '...'}</span></p>
                     <p className="text-xs text-muted-foreground">Stay up to date with the latest features</p>
                   </div>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => checkForUpdates(true)}
                     disabled={isChecking}
                     className="rounded-full border-primary/30 hover:bg-primary/20"
@@ -459,13 +459,12 @@ export default function Settings() {
                   <p className="font-medium text-sm">Approval Status</p>
                   <p className="text-xs text-muted-foreground">Your account verification status</p>
                 </div>
-                <span className={`px-3 py-1 rounded-full text-xs font-medium w-fit ${
-                  profile?.approval_status === 'approved' 
+                <span className={`px-3 py-1 rounded-full text-xs font-medium w-fit ${profile?.approval_status === 'approved'
                     ? 'bg-primary/20 text-primary'
                     : profile?.approval_status === 'pending'
-                    ? 'bg-amber-500/20 text-amber-500'
-                    : 'bg-destructive/20 text-destructive'
-                }`}>
+                      ? 'bg-amber-500/20 text-amber-500'
+                      : 'bg-destructive/20 text-destructive'
+                  }`}>
                   {profile?.approval_status || 'pending'}
                 </span>
               </div>
@@ -486,12 +485,12 @@ export default function Settings() {
                   <p className="text-xs text-muted-foreground">Account creation date</p>
                 </div>
                 <span className="text-muted-foreground text-xs">
-                  {profile?.created_at 
+                  {profile?.created_at
                     ? new Date(profile.created_at).toLocaleDateString('en-US', {
-                        month: 'long',
-                        day: 'numeric',
-                        year: 'numeric'
-                      })
+                      month: 'long',
+                      day: 'numeric',
+                      year: 'numeric'
+                    })
                     : '—'}
                 </span>
               </div>
@@ -507,8 +506,8 @@ export default function Settings() {
 
             <div className="p-4 rounded-xl bg-muted/30">
               <p className="text-xs text-muted-foreground leading-relaxed">
-                This app is optimized for low resource usage with ~40MB RAM footprint. 
-                Uses CSS transforms for GPU-accelerated animations and virtual lists 
+                This app is optimized for low resource usage with ~40MB RAM footprint.
+                Uses CSS transforms for GPU-accelerated animations and virtual lists
                 to prevent memory bloat. Safe to run alongside ETS2/ATS.
               </p>
             </div>
@@ -523,7 +522,7 @@ export default function Settings() {
 
             <div className="p-4 rounded-xl bg-muted/30">
               <p className="text-xs text-muted-foreground leading-relaxed">
-                Password changes and account security settings can be managed through the HR team. 
+                Password changes and account security settings can be managed through the HR team.
                 Contact an administrator if you need to update your credentials.
               </p>
             </div>

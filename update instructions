@@ -21,7 +21,7 @@ Because your users already have `1.0.0` installed, they won't download an update
 Open your `updater.json` file and manually update the 3 important fields so the app knows where to look:
 - `"version": "1.0.1"`
 - `"signature": "PASTE_YOUR_NEW_BASE64_SIGNATURE_HERE"`
-- `"url": "https://github.com/Chetan302003/Aura-Hub/releases/download/v1.0.1/Aura.VTC.Hub_1.0.1_x64-setup.exe"`
+- `"url": "https://github.com/Chetan302003/Meth-Hub/releases/download/v1.0.1/Aura.VTC.Hub_1.0.1_x64-setup.exe"`
 *(Optional: Update the `"notes"` field so users know what the update fixes!)*
 
 ### Step 4: Push to GitHub

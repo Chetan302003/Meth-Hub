@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Aura VTC Hub",
-  "version": "1.0.5",
-  "identifier": "com.auravtc.hub",
+  "productName": "METH VTC Hub",
+  "version": "1.0.6",
+  "identifier": "com.methvtc.hub",
   "build": {
     "beforeBuildCommand": "npm run build",
     "beforeDevCommand": "npm run dev",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Aura VTC Hub",
+        "title": "METH VTC Hub",
         "width": 1200,
         "height": 800,
         "minWidth": 800,
@@ -49,10 +49,10 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "publisher": "Aura VTC",
-    "copyright": "© 2026 Aura VTC",
+    "publisher": "METH VTC",
+    "copyright": "© 2026 METH VTC",
     "category": "Utility",
-    "shortDescription": "Aura VTC Hub",
+    "shortDescription": "METH VTC Hub",
     "longDescription": "Fleet management hub for Euro Truck Simulator 2 VTC",
     "windows": {
       "webviewInstallMode": {
@@ -71,7 +71,7 @@
       "dialog": true,
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEQ3NEQyRjAxOURDMDY1RDYKUldUV1pjQ2RBUzlOMS9yZ2FteWovRWJxYXJ3alMvRHUwTXA4TzZsWUlYN0tBN3RTRkhOb3c3bzkK",
       "endpoints": [
-        "https://raw.githubusercontent.com/Chetan302003/Aura-Hub/refs/heads/main/updater.json"
+        "https://raw.githubusercontent.com/Chetan302003/Meth-Hub/refs/heads/main/updater.json"
       ]
     }
   }

@@ -21,7 +21,7 @@ export function useDiscordRpc() {
     const updateRpc = () => {
       if (!initialized.current) return;
       const current = dataRef.current;
-      
+
       if (!current.connected) {
         invoke('set_discord_rpc', {
           details: 'Idling in Main Menu',

@@ -225,15 +225,15 @@ export default function CalendarPage() {
     let icsContent = [
       'BEGIN:VCALENDAR',
       'VERSION:2.0',
-      'PRODID:-//Aura VTC Hub//Events Calendar//EN',
+      'PRODID:-//METH VTC Hub//Events Calendar//EN',
       'CALSCALE:GREGORIAN',
       'METHOD:PUBLISH',
-      'X-WR-CALNAME:Aura VTC Events',
+      'X-WR-CALNAME:METH VTC Events',
       'X-WR-TIMEZONE:UTC'
     ];
 
     calendarEvents.forEach((event) => {
-      const uid = `${event.id}@auravtc.hub`;
+      const uid = `${event.id}@methvtc.hub`;
       const startDate = formatICSDate(event.start);
       const endDate = formatICSDate(new Date(event.start.getTime() + 2 * 60 * 60 * 1000));
       
@@ -278,7 +278,7 @@ export default function CalendarPage() {
 
         const filePath = await save({
           filters: [{ name: 'Calendar File', extensions: ['ics'] }],
-          defaultPath: 'aura-vtc-events.ics',
+          defaultPath: 'meth-vtc-events.ics',
         });
 
         if (filePath) {
@@ -296,7 +296,7 @@ export default function CalendarPage() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'aura-vtc-events.ics';
+    link.download = 'meth-vtc-events.ics';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

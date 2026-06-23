@@ -1,9 +1,9 @@
 <div align="center">
-  <img src="https://i.postimg.cc/xTk8t3G2/cropped-circle-image-(1).png" alt="Aura VTC Logo" width="200" />
-  <h1>Aura VTC Hub</h1>
+  <img src="https://i.ibb.co/wNRBF3zj/logo-png.png" alt="METH VTC Logo" width="200" />
+  <h1>METH VTC Hub</h1>
   <p><strong>A Modern, High-Performance Virtual Trucking Hub for ETS2 & ATS</strong></p>
 
-  [![Discord Server](https://img.shields.io/discord/1069502621062086707?color=7289da&logo=discord&logoColor=white)](https://discord.gg/auravtc)
+  [![Discord Server](https://img.shields.io/discord/1432983135406129225?color=7289da&logo=discord&logoColor=white)](https://discord.gg/YpKgwujp)
   [![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)]()
   [![Tauri Configured](https://img.shields.io/badge/Built%20With-Tauri-orange?logo=tauri)](https://tauri.app)
   [![React & Vite](https://img.shields.io/badge/Powered%20By-React%20%2B%20Vite-61DAFB?logo=react)](https://reactjs.org/)
@@ -11,8 +11,8 @@
 
 <hr/>
 
-## 🚛 What is Aura VTC Hub?
-Aura VTC Hub is a sleek, ultra-performant desktop client created explicitly for the drivers of **Aura Virtual Trucking Company**. Unlike massive, bloatware trackers, Aura uses an insanely fast Rust backend connected to the ETS2/ATS telemetry memory stream. Operating invisibly in the background with barely ~40MB RAM usage, it allows drivers to interact seamlessly with company systems, seamlessly record logistics logs, organize events, display rich presence, and conquer the virtual roads.
+## 🚛 What is METH VTC Hub?
+METH VTC Hub is a sleek, ultra-performant desktop client created explicitly for the drivers of **METH Virtual Trucking Company**. Unlike massive, bloatware trackers, METH uses an insanely fast Rust backend connected to the ETS2/ATS telemetry memory stream. Operating invisibly in the background with barely ~40MB RAM usage, it allows drivers to interact seamlessly with company systems, seamlessly record logistics logs, organize events, display rich presence, and conquer the virtual roads.
 
 ---
 
@@ -146,8 +146,8 @@ Want to work on the hub? It's easy!
 
 1. **Clone the Repository:**
 ```bash
-git clone https://github.com/Chetan302003/Aura-Hub.git
-cd Aura-Hub
+git clone https://github.com/Chetan302003/Meth-Hub.git
+cd Meth-Hub
 ```
 
 2. **Configure your Secrets:**

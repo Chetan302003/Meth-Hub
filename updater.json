@@ -1,11 +1,11 @@
 {
-  "version": "1.0.5",
-  "notes": "Aura VTC Hub v1.0.5",
+  "version": "1.0.6",
+  "notes": "METH VTC Hub v1.0.6",
   "pub_date": "2026-05-17T05:57:27Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUV1pjQ2RBUzlOMTl6QjNxSjNFLzk4QVZVcCttaVI4M09EWVhLY3VjWmN2MHEwWWcyM2lQb1RSYzJqY1dYd3c5MEtSc3BINGJLNi9oYlMrR1RqeXVpZFpXemVyU3gybkFBPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc5MDExNTA5CWZpbGU6QXVyYSBWVEMgSHViXzEuMC41X3g2NC1zZXR1cC5leGUKR1NqeTVYM1RlZXYzQ1gvYWlwaGlzN1FTaTVuN3huMnErbXBSV25rQmJzODJZRUJnOTBXQXp5NVZxNUpGM043dGtPWThDd2haUlNEZmdXQWk2UGJTQ1E9PQo=",
-      "url": "https://github.com/Chetan302003/Aura-Hub/releases/download/v1.0.5/Aura.VTC.Hub_1.0.5_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUV1pjQ2RBUzlOMTN4UU02c25QUlYyVnpxdDhpUk9zNk1UUlRHWnBLZ29qOCtjS1VNaC9rZ3N4VlR6TzZSaHNQV2Q2dUJrL0ZkRXBrWUFrdWV5cFQ2c2lybjdoS3RUbndjPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzgyMjMzMTE4CWZpbGU6TUVUSCBWVEMgSHViXzEuMC42X3g2NC1zZXR1cC5leGUKRTBScE9VNGFFV2ROU3JoNXNST0w0ejhRSE9RUml5bXUxWCtTeC9lcUFWTFdtMW1GNk9vclhrcVhab1hTd0k4MDdJcVM3WVdiOVIvaVVwYVhacjcwQVE9PQo=",
+      "url": "https://github.com/Chetan302003/Meth-Hub/releases/download/v1.0.6/Aura.VTC.Hub_1.0.6_x64-setup.exe"
     }
   }
 }
