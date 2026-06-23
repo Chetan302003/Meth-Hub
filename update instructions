@@ -37,3 +37,46 @@ Edited package.json
 Edited tauri.conf.json
 Edited tauri.conf.json
 Ran command: `npm run build`
+
+
+
+
+To remotely push this update to everyone who already installed your app, you will use the **Auto-Updater** we built! 
+
+Tauri's auto-updater works by checking the `updater.json` file hosted on your GitHub `main` branch. When the version in that file is higher than the version running on their computer, it automatically downloads the new `.exe`!
+
+Here is the exact **4-step process** you need to do whenever you want to push an update (like these avatar fixes) to your users:
+
+### Step 1: Bump the Version
+Because your users already have `1.0.6` installed, they won't download an update unless the number goes up.
+1. Open `package.json` and change the version to `"1.0.7"`.
+2. Open [src-tauri/tauri.conf.json](cci:7://file:///d:/methvtchub/src-tauri/tauri.conf.json:0:0-0:0) and change the version to `"1.0.7"`.
+
+### Step 2: Build & Sign 
+1. Run `npm run tauri build` to generate your new `Meth VTC Hub_1.0.7_x64-setup.exe`.
+2. Run your signing command to generate the new signature (`.sig`) for this specific build:
+   ```powershell
+   $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD="1234"; npx tauri signer sign -k (Get-Content .\updater.key -Raw) "./src-tauri/target/release/bundle/nsis/Meth VTC Hub_1.0.7_x64-setup.exe"
+
+   ```
+
+### Step 3: Update `updater.json`
+Open your `updater.json` file and manually update the 3 important fields so the app knows where to look:
+- `"version": "1.0.7"`
+- `"signature": "PASTE_YOUR_NEW_BASE64_SIGNATURE_HERE"`
+- `"url": "https://github.com/Chetan302003/Meth-Hub/releases/download/v1.0.7/Meth.VTC.Hub_1.0.7_x64-setup.exe"`
+*(Optional: Update the `"notes"` field so users know what the update fixes!)*
+
+### Step 4: Push to GitHub
+1. Commit and `git push` your code to GitHub (this pushes your modified `updater.json` so all the installed apps can instantly see it).
+2. Go to your GitHub repository and **Draft a New Release**.
+3. Set the Tag strictly to **`v1.0.7`**.
+4. Rename your newly built `.exe` from `Meth VTC Hub_1.0.7...` to exactly **`Meth.VTC.Hub_1.0.7_x64-setup.exe`** (so it perfectly matches the URL).
+5. Drag and drop the `.exe` into the release box and click **Publish**!
+
+The next time any of your drivers open the Hub, a beautiful native Windows dialogue box will pop up saying *"Aura VTC Hub v1.0.1 is available!"* with your release notes. When they click "Update", it will smoothly download the `.exe`, verify your secure signature, and seamlessly restart the app with the newly injected avatar fixes!
+
+Edited package.json
+Edited tauri.conf.json
+Edited tauri.conf.json
+Ran command: `npm run build`
