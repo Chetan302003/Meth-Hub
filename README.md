@@ -8,7 +8,29 @@
   [![Tauri Configured](https://img.shields.io/badge/Built%20With-Tauri-orange?logo=tauri)](https://tauri.app)
   [![React & Vite](https://img.shields.io/badge/Powered%20By-React%20%2B%20Vite-61DAFB?logo=react)](https://reactjs.org/)
 </div>
-
+  <p>
+    <em>
+      Previously known as <strong>Aura Hub</strong>, this project has been renamed to 
+      <strong>METH VTC Hub</strong> (temporary name) due to internal disputes.<br/>
+      If you would like your own custom hub, feel free to DM me on Instagram: 
+      <strong>@Chetan.m_2003</strong>.
+    </em>
+  </p>
+  <p>
+    <a href="https://discord.gg/YpKgwujp">
+      <img src="https://img.shields.io/discord/1432983135406129225?color=7289da&logo=discord&logoColor=white" alt="Discord Server" />
+    </a>
+    <a href="#">
+      <img src="https://img.shields.io/badge/version-1.0.0-blue.svg" alt="Version" />
+    </a>
+    <a href="https://tauri.app">
+      <img src="https://img.shields.io/badge/Built%20With-Tauri-orange?logo=tauri" alt="Tauri" />
+    </a>
+    <a href="https://reactjs.org/">
+      <img src="https://img.shields.io/badge/Powered%20By-React%20%2B%20Vite-61DAFB?logo=react" alt="React & Vite" />
+    </a>
+  </p>
+</div>
 <hr/>
 
 ## 🚛 What is METH VTC Hub?
@@ -183,10 +205,10 @@ npm run tauri dev
 ## 📞 Support & Contact
 
 If you encounter any bugs, unhandled crashes, or telemetry sync issues, please reach out to us:
-Head over to the [Aura VTC Contact Portal](https://www.auravtc.com/contact) and select the **Management Team** option to get in touch with our developers directly!
+Head over to the  and select the **Instagram** option to get in touch with our developers directly!
 
 <p align="center">
   Designed and Developed by <a href="https://github.com/Chetan302003">Chetan</a><br/>
-  &copy; 2026 Aura VTC. All Rights Reserved.<br/>
+  &copy; 2026 Meth VTC. All Rights Reserved.<br/>
   Keep on Trucking! 🚛
 </p>
