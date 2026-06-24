@@ -16,22 +16,6 @@
       <strong>@Chetan.m_2003</strong>.
     </em>
   </p>
-  <p>
-    <a href="https://discord.gg/YpKgwujp">
-      <img src="https://img.shields.io/discord/1432983135406129225?color=7289da&logo=discord&logoColor=white" alt="Discord Server" />
-    </a>
-    <a href="#">
-      <img src="https://img.shields.io/badge/version-1.0.0-blue.svg" alt="Version" />
-    </a>
-    <a href="https://tauri.app">
-      <img src="https://img.shields.io/badge/Built%20With-Tauri-orange?logo=tauri" alt="Tauri" />
-    </a>
-    <a href="https://reactjs.org/">
-      <img src="https://img.shields.io/badge/Powered%20By-React%20%2B%20Vite-61DAFB?logo=react" alt="React & Vite" />
-    </a>
-  </p>
-</div>
-<hr/>
 
 ## 🚛 What is METH VTC Hub?
 METH VTC Hub is a sleek, ultra-performant desktop client created explicitly for the drivers of **METH Virtual Trucking Company**. Unlike massive, bloatware trackers, METH uses an insanely fast Rust backend connected to the ETS2/ATS telemetry memory stream. Operating invisibly in the background with barely ~40MB RAM usage, it allows drivers to interact seamlessly with company systems, seamlessly record logistics logs, organize events, display rich presence, and conquer the virtual roads.
