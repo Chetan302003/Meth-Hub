@@ -12,7 +12,7 @@ serve(async (req: Request) => {
     }
 
     try {
-        const vtcId = 72500;
+        const vtcId = Deno.env.get('VTC_ID') || '76045';
         const targetUrl = `https://api.truckersmp.com/v2/vtc/${vtcId}/events`;
 
         console.log(`[VTC API] Fetching upcoming events from ${targetUrl}`);

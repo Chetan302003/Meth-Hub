@@ -4,6 +4,9 @@ import { appLocalDataDir, join } from '@tauri-apps/api/path';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 import { isTauri } from '@/lib/tauri';
+import { VTC_ID } from '@/config/vtc';
+
+export { VTC_ID };
 
 export interface TMPPlayer {
   id: number;
@@ -203,7 +206,7 @@ export function useTruckersMP() {
     setLoading(true);
     setError(null);
     try {
-      const response = await tauriFetch('https://api.truckersmp.com/v2/vtc/75200/events/attending', {
+      const response = await tauriFetch(`https://api.truckersmp.com/v2/vtc/${VTC_ID}/events/attending`, {
         method: 'GET'
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -246,7 +249,7 @@ export function useTruckersMP() {
     setLoading(true);
     setError(null);
     try {
-      const response = await tauriFetch('https://api.truckersmp.com/v2/vtc/75200/events', {
+      const response = await tauriFetch(`https://api.truckersmp.com/v2/vtc/${VTC_ID}/events`, {
         method: 'GET'
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -312,5 +315,6 @@ export function useTruckersMP() {
     getVTCEvents,
     getServers,
     isValidTMPId,
+    vtcId: VTC_ID,
   };
 }

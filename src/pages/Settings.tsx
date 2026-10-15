@@ -89,8 +89,8 @@ export default function Settings() {
       }
 
       // Resolve the bundled DLL from app resources
-      const sourceDll = await resolveResource('resources/meth_hub_telemetry.dll');
-      const destPath = `${pluginDir}\\meth_hub_telemetry.dll`;
+      const sourceDll = await resolveResource('resources/myhub_telemetry.dll');
+      const destPath = `${pluginDir}\\myhub_telemetry.dll`;
 
       await copyFile(sourceDll, destPath);
 

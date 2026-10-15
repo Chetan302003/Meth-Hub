@@ -39,7 +39,7 @@ For the application to read your truck's data, it requires a small DLL plugin in
 1. Open the Aura Hub app and go to the **Settings** page.
 2. Scroll to the **Telemetry Plugin Setup** panel.
 3. Click **Select Game Folder** and locate your `Euro Truck Simulator 2` or `American Truck Simulator` root folder (usually in `C:\Program Files (x86)\Steam\steamapps\common\...`).
-4. Click Install. The Hub will transparently construct the necessary `/plugins/` folders and install the `aura_hub_telemetry.dll` for you natively.
+4. Click Install. The Hub will transparently construct the necessary `/plugins/` folders and install the `myhub_telemetry.dll` for you natively.
 5. **Launch your Game**! An SDK verification box will appear inside your games' startup flow. Click "OK".
 6. If 
 ### 3. Hitting the Road

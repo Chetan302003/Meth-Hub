@@ -25,10 +25,10 @@ fn open_devtools(app: tauri::AppHandle) {
 
 #[tauri::command]
 fn install_telemetry_plugin(app: AppHandle, custom_path: Option<String>) -> Result<String, String> {
-    // Note: The dll must be bundled in `src-tauri/resources/meth_hub_telemetry.dll`
+    // Note: The dll must be bundled in `src-tauri/resources/myhub_telemetry.dll`
     let resource_path = app.path().resource_dir()
         .map_err(|e| format!("Failed to resolve resource directory: {}", e))?
-        .join("scs-telemetry.dll");
+        .join("myhub_telemetry.dll");
 
     if !resource_path.exists() {
         return Err("Telemetry DLL not found in app resources. Contact developer.".to_string());
@@ -51,7 +51,7 @@ fn install_telemetry_plugin(app: AppHandle, custom_path: Option<String>) -> Resu
         std::fs::create_dir_all(&ets2_target).map_err(|e| format!("Failed to create plugins folder: {}", e))?;
     }
 
-    let final_dest = ets2_target.join("scs-telemetry.dll");
+    let final_dest = ets2_target.join("myhub_telemetry.dll");
     
     // Copy the file
     match std::fs::copy(&resource_path, &final_dest) {
