@@ -8,8 +8,14 @@
   [![Tauri Configured](https://img.shields.io/badge/Built%20With-Tauri-orange?logo=tauri)](https://tauri.app)
   [![React & Vite](https://img.shields.io/badge/Powered%20By-React%20%2B%20Vite-61DAFB?logo=react)](https://reactjs.org/)
 </div>
-
-<hr/>
+  <p>
+    <em>
+      Previously known as <strong>Aura Hub</strong>, this project has been renamed to 
+      <strong>METH VTC Hub</strong> (temporary name) due to internal disputes.<br/>
+      If you would like your own custom hub, feel free to DM me on Instagram: 
+      <strong>@Chetan.m_2003</strong>.
+    </em>
+  </p>
 
 ## 🚛 What is METH VTC Hub?
 METH VTC Hub is a sleek, ultra-performant desktop client created explicitly for the drivers of **METH Virtual Trucking Company**. Unlike massive, bloatware trackers, METH uses an insanely fast Rust backend connected to the ETS2/ATS telemetry memory stream. Operating invisibly in the background with barely ~40MB RAM usage, it allows drivers to interact seamlessly with company systems, seamlessly record logistics logs, organize events, display rich presence, and conquer the virtual roads.
@@ -183,10 +189,10 @@ npm run tauri dev
 ## 📞 Support & Contact
 
 If you encounter any bugs, unhandled crashes, or telemetry sync issues, please reach out to us:
-Head over to the [Aura VTC Contact Portal](https://www.auravtc.com/contact) and select the **Management Team** option to get in touch with our developers directly!
+Head over to the  and select the **Instagram** option to get in touch with our developers directly!
 
 <p align="center">
   Designed and Developed by <a href="https://github.com/Chetan302003">Chetan</a><br/>
-  &copy; 2026 Aura VTC. All Rights Reserved.<br/>
+  &copy; 2026 Meth VTC. All Rights Reserved.<br/>
   Keep on Trucking! 🚛
 </p>
