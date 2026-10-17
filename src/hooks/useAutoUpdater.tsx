@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { check } from '@tauri-apps/plugin-updater';
+import { relaunch } from '@tauri-apps/plugin-process';
 import { isTauri } from '@tauri-apps/api/core';
 import { getVersion } from '@tauri-apps/api/app';
 import { toast } from 'sonner';
@@ -13,7 +14,7 @@ export function useAutoUpdater() {
     if (!isTauri()) {
       if (manual) {
         toast.error('Browser Not Supported', {
-          description: 'Auto-updates are only available in the METH Desktop App.',
+          description: 'Auto-updates are only available in the MY HUB Desktop App.',
         });
       }
       return;
@@ -28,7 +29,7 @@ export function useAutoUpdater() {
         console.log(`Update available: ${update.version}`);
 
         toast('Update Available!', {
-          description: `METH VTC Hub v${update.version} is ready to install.`,
+          description: `MY HUB v${update.version} is ready to install.`,
           action: {
             label: 'Update Now',
             onClick: async () => {
@@ -50,10 +51,19 @@ export function useAutoUpdater() {
                       }
                       break;
                     case 'Finished':
-                      toast.success('Update installed! Restarting...');
+                      toast.success('Update downloaded! Installing and restarting...');
                       break;
                   }
                 });
+
+                toast.success('Update installed! Restarting app...');
+                setTimeout(async () => {
+                  try {
+                    await relaunch();
+                  } catch (relaunchErr) {
+                    console.error('Failed to relaunch app automatically:', relaunchErr);
+                  }
+                }, 1200);
               } catch (updateError: any) {
                 console.error('[UPDATER ERROR]:', updateError);
                 toast.error('Update Failed to Start', {
@@ -67,7 +77,7 @@ export function useAutoUpdater() {
         });
       } else if (manual) {
         toast.success('App Up-to-Date', {
-          description: 'You are running the latest version of METH VTC Hub.',
+          description: 'You are running the latest version of MY HUB.',
         });
       }
     } catch (error) {
@@ -93,7 +103,7 @@ export function useAutoUpdater() {
         // If we have a stored version, and it's physically different than what Tauri is currently running, we just updated!
         if (storedVersion && storedVersion !== currentVersion) {
           toast.success(`Update Successfully Installed! ✨`, {
-            description: `You are now rocking METH VTC Hub v${currentVersion}!`,
+            description: `You are now rocking MY HUB v${currentVersion}!`,
             duration: 8000
           });
         }

@@ -1,15 +1,14 @@
+use std::path::PathBuf;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::LazyLock; // Standard library alternative to once_cell
-use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
 
-mod telemetry;
 mod rpc;
+mod telemetry;
 
 // This prevents the app from spamming the game while it's trying to close
 static GAME_CLOSING: LazyLock<AtomicBool> = LazyLock::new(|| AtomicBool::new(false));
-
 
 #[tauri::command]
 fn reset_telemetry_lock() {
@@ -26,7 +25,9 @@ fn open_devtools(app: tauri::AppHandle) {
 #[tauri::command]
 fn install_telemetry_plugin(app: AppHandle, custom_path: Option<String>) -> Result<String, String> {
     // Note: The dll must be bundled in `src-tauri/resources/myhub_telemetry.dll`
-    let resource_path = app.path().resource_dir()
+    let resource_path = app
+        .path()
+        .resource_dir()
         .map_err(|e| format!("Failed to resolve resource directory: {}", e))?
         .join("myhub_telemetry.dll");
 
@@ -37,7 +38,9 @@ fn install_telemetry_plugin(app: AppHandle, custom_path: Option<String>) -> Resu
     // Use custom path if provided, otherwise use default Steam path
     let game_root = match custom_path {
         Some(p) => PathBuf::from(p),
-        None => PathBuf::from("C:\\Program Files (x86)\\Steam\\steamapps\\common\\Euro Truck Simulator 2"),
+        None => PathBuf::from(
+            "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Euro Truck Simulator 2",
+        ),
     };
 
     // Check if game exists
@@ -46,17 +49,18 @@ fn install_telemetry_plugin(app: AppHandle, custom_path: Option<String>) -> Resu
     }
 
     let ets2_target = game_root.join("bin").join("win_x64").join("plugins");
-    
+
     if !ets2_target.exists() {
-        std::fs::create_dir_all(&ets2_target).map_err(|e| format!("Failed to create plugins folder: {}", e))?;
+        std::fs::create_dir_all(&ets2_target)
+            .map_err(|e| format!("Failed to create plugins folder: {}", e))?;
     }
 
     let final_dest = ets2_target.join("myhub_telemetry.dll");
-    
+
     // Copy the file
     match std::fs::copy(&resource_path, &final_dest) {
         Ok(_) => Ok("Telemetry SDK successfully installed to ETS2!".to_string()),
-        Err(e) => Err(format!("Failed to copy DLL: {}", e))
+        Err(e) => Err(format!("Failed to copy DLL: {}", e)),
     }
 }
 
@@ -71,7 +75,8 @@ struct TrayState(tauri::tray::TrayIcon);
 
 pub fn run() {
     tauri::Builder::default()
-        .manage(rpc::DiscordState(std::sync::Mutex::new(None)))
+        .plugin(tauri_plugin_process::init())
+        .manage(rpc::DiscordState::new())
         // Initialize all plugins here at the top level
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_fs::init())
@@ -91,14 +96,16 @@ pub fn run() {
             tauri_plugin_log::Builder::default()
                 .targets([
                     tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Stdout),
-                    tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::LogDir { file_name: None }),
+                    tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::LogDir {
+                        file_name: None,
+                    }),
                     tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Webview),
                 ])
                 .level(log::LevelFilter::Info)
                 .build(),
         )
         .invoke_handler(tauri::generate_handler![
-            telemetry::get_telemetry_data, 
+            telemetry::get_telemetry_data,
             reset_telemetry_lock,
             open_devtools,
             install_telemetry_plugin,

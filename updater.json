@@ -1,11 +1,11 @@
 {
-  "version": "1.1.0",
-  "notes": "MY HUB v1.1.0",
-  "pub_date": "2026-10-16T06:41:30Z",
+  "version": "1.1.1",
+  "notes": "MY HUB v1.1.1",
+  "pub_date": "2026-10-17T12:13:30Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUV1pjQ2RBUzlOMTRwV2RrQ1h0ZnVublpPdldNSytaY2NjVnlXLzdNNm50b3NxRTgrNkV2bVdZOFBuTHNEcjNtUW9SaElsWDRWSmN5ZVZhYjdobnVua3UzVmFldGZnV1FBPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyMDkzMDg1CWZpbGU6TVkgSFVCXzEuMS4wX3g2NC1zZXR1cC5leGUKYTVWMTRWN3J5S2psL3Z6eEZPK0M3TlBkVjh5QVg5SEVWSHRjZmF5d1RGbTNqdUxPZmU2aUdPSTV3Q2FXOWJoT2lWK1pwUkpFVzN6eUZVWGJvajNCRFE9PQo=",
-      "url": "https://github.com/Chetan302003/Meth-Hub/releases/download/v1.1.0/MY.HUB_1.1.0_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUV1pjQ2RBUzlOMTEzV3FVTVJqYlBKd1pvbVFrNnhNM2Zqam5LQTlTdkl6MXlZM3o2TEZUa0JMdEVaZWoweDk1eitrYWRtVHcwZmo4K2FLLzgzLzhqSEU1dlRBeFFCL2dzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkyMjE5MzYzCWZpbGU6TVkgSFVCXzEuMS4xX3g2NC1zZXR1cC5leGUKQ2UzaDBLc01hN0ZTQkFVQVVFMkwzUC9Cck1oYmVIWkt6T3FhZWMzcG00MjhFRVVIeGlqNzREZjVJdDQ5cXRRZzliVmpWTTRnaXJXV1JCczQ0dno0Qmc9PQo=",
+      "url": "https://github.com/Chetan302003/Meth-Hub/releases/download/v1.1.1/MY.HUB_1.1.1_x64-setup.exe"
     }
   }
 }

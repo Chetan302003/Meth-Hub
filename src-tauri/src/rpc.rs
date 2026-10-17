@@ -1,21 +1,37 @@
 use discord_rich_presence::{activity, DiscordIpc, DiscordIpcClient};
 use std::sync::Mutex;
 
-pub struct DiscordState(pub Mutex<Option<DiscordIpcClient>>);
+pub struct DiscordState {
+    pub client: Mutex<Option<DiscordIpcClient>>,
+    pub client_id: Mutex<Option<String>>,
+}
+
+impl DiscordState {
+    pub fn new() -> Self {
+        Self {
+            client: Mutex::new(None),
+            client_id: Mutex::new(None),
+        }
+    }
+}
 
 #[tauri::command]
-pub fn init_discord_rpc(state: tauri::State<'_, DiscordState>, client_id: String) -> Result<(), String> {
-    // In discord-rich-presence v1.1.0, new() returns the raw struct synchronously
+pub fn init_discord_rpc(
+    state: tauri::State<'_, DiscordState>,
+    client_id: String,
+) -> Result<(), String> {
+    *state.client_id.lock().unwrap() = Some(client_id.clone());
     let mut client = DiscordIpcClient::new(&client_id);
 
     match client.connect() {
         Ok(_) => {
-            *state.0.lock().unwrap() = Some(client);
-            println!(" Titan Omega: Connected to Discord RPC successfully.");
+            *state.client.lock().unwrap() = Some(client);
+            println!("Discord RPC: Connected successfully.");
             Ok(())
         }
         Err(e) => {
-            println!(" Titan Omega: Failed to connect to Discord RPC: {:?}", e);
+            *state.client.lock().unwrap() = None;
+            println!("Discord RPC: Failed to connect initially: {:?}", e);
             Err(format!("Connect error: {:?}", e))
         }
     }
@@ -31,10 +47,21 @@ pub fn set_discord_rpc(
     small_image_key: Option<String>,
     small_image_text: Option<String>,
 ) -> Result<(), String> {
-    let mut lock = state.0.lock().unwrap();
-    if let Some(client) = lock.as_mut() {
+    let mut client_lock = state.client.lock().unwrap();
+
+    // Auto-reconnect if socket was dropped or Discord restarted
+    if client_lock.is_none() {
+        if let Some(ref cid) = *state.client_id.lock().unwrap() {
+            let mut new_client = DiscordIpcClient::new(cid);
+            if new_client.connect().is_ok() {
+                *client_lock = Some(new_client);
+            }
+        }
+    }
+
+    if let Some(client) = client_lock.as_mut() {
         let mut payload = activity::Activity::new();
-        
+
         if let Some(ref d) = details {
             payload = payload.details(d);
         }
@@ -59,20 +86,36 @@ pub fn set_discord_rpc(
             payload = payload.assets(assets);
         }
 
-        client.set_activity(payload).map_err(|e| e.to_string())?;
-        Ok(())
+        match client.set_activity(payload.clone()) {
+            Ok(_) => Ok(()),
+            Err(e) => {
+                // IPC socket broke (Discord reloaded/restarted or named pipe closed)
+                *client_lock = None;
+
+                // Try one immediate reconnect
+                if let Some(ref cid) = *state.client_id.lock().unwrap() {
+                    let mut new_client = DiscordIpcClient::new(cid);
+                    if new_client.connect().is_ok() {
+                        let res = new_client.set_activity(payload).map_err(|err| err.to_string());
+                        *client_lock = Some(new_client);
+                        return res;
+                    }
+                }
+                Err(format!("Discord IPC connection dropped: {}", e))
+            }
+        }
     } else {
-        Err("Discord RPC not initialized".to_string())
+        Err("Discord RPC not running (Discord is not open)".to_string())
     }
 }
 
 #[tauri::command]
 pub fn clear_discord_rpc(state: tauri::State<'_, DiscordState>) -> Result<(), String> {
-    let mut lock = state.0.lock().unwrap();
-    if let Some(client) = lock.as_mut() {
-        client.clear_activity().map_err(|e| e.to_string())?;
+    let mut client_lock = state.client.lock().unwrap();
+    if let Some(client) = client_lock.as_mut() {
+        let _ = client.clear_activity();
         Ok(())
     } else {
-        Err("Discord RPC not initialized".to_string())
+        Ok(())
     }
 }

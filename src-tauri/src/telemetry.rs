@@ -20,8 +20,12 @@ const MAX_HSHIFTER_SLOTS: usize = 32;
 #[repr(C, packed)]
 #[derive(Copy, Clone)]
 struct AuraPlacementRaw {
-    pub x: f32, pub y: f32, pub z: f32,
-    pub heading: f32, pub pitch: f32, pub roll: f32,
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+    pub heading: f32,
+    pub pitch: f32,
+    pub roll: f32,
 }
 
 #[repr(C)]
@@ -52,7 +56,9 @@ impl From<AuraPlacementRaw> for AuraPlacement {
 #[repr(C, packed)]
 #[derive(Copy, Clone)]
 struct AuraFVectorRaw {
-    pub x: f32, pub y: f32, pub z: f32,
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
 }
 
 #[repr(C)]
@@ -66,7 +72,11 @@ pub struct AuraFVector {
 
 impl From<AuraFVectorRaw> for AuraFVector {
     fn from(raw: AuraFVectorRaw) -> Self {
-        Self { x: raw.x, y: raw.y, z: raw.z }
+        Self {
+            x: raw.x,
+            y: raw.y,
+            z: raw.z,
+        }
     }
 }
 
@@ -532,7 +542,13 @@ pub fn get_telemetry_data() -> Result<TelemetryData, String> {
             return Err("Shared memory not found".into());
         }
 
-        let ptr = MapViewOfFile(hmap, FILE_MAP_READ, 0, 0, std::mem::size_of::<AuraTelemetryRaw>());
+        let ptr = MapViewOfFile(
+            hmap,
+            FILE_MAP_READ,
+            0,
+            0,
+            std::mem::size_of::<AuraTelemetryRaw>(),
+        );
         if ptr.Value.is_null() {
             CloseHandle(hmap).ok();
             return Err("MapViewOfFile failed".into());
@@ -544,25 +560,29 @@ pub fn get_telemetry_data() -> Result<TelemetryData, String> {
 
         let got_version = raw.version;
         if got_version != SHARED_MEM_VERSION {
-            return Err(format!("Version mismatch: got {}, need {}", got_version, SHARED_MEM_VERSION));
+            return Err(format!(
+                "Version mismatch: got {}, need {}",
+                got_version, SHARED_MEM_VERSION
+            ));
         }
 
         let mut trailers = Vec::new();
         for i in 0..MAX_TRAILERS {
             let id = read_cstr(&raw.trailer_id[i]);
             let attached_flag = { raw.trailer_attached[i] };
-            
+
             // The C++ plugin doesn't always set trailer_attached and doesn't clear trailer_id when detached.
-            // trailer_placement is also always zero. 
+            // trailer_placement is also always zero.
             // We check multiple physics indicators (substance, on_ground, suspension) to detect presence.
             let mut has_physics = false;
             // Check the first 6 wheels of this trailer slot
             for w in 0..6 {
                 let wheel_idx = i * 6 + w;
                 if wheel_idx < MAX_WHEELS {
-                    if { raw.trailer_wheel_substance[wheel_idx] } > 0 
-                        || { raw.trailer_wheel_on_ground[wheel_idx] } > 0 
-                        || { raw.trailer_wheel_susp[wheel_idx] } > 0.0 {
+                    if { raw.trailer_wheel_substance[wheel_idx] } > 0
+                        || { raw.trailer_wheel_on_ground[wheel_idx] } > 0
+                        || { raw.trailer_wheel_susp[wheel_idx] } > 0.0
+                    {
                         has_physics = true;
                         break;
                     }
@@ -572,7 +592,8 @@ pub fn get_telemetry_data() -> Result<TelemetryData, String> {
             // If we have an active job and this is the first trailer slot, it's definitely attached
             let is_first_trailer_with_job = i == 0 && raw.job_active == 1 && !id.is_empty();
 
-            let is_attached = attached_flag == 1 || is_first_trailer_with_job || (has_physics && !id.is_empty());
+            let is_attached =
+                attached_flag == 1 || is_first_trailer_with_job || (has_physics && !id.is_empty());
 
             if is_attached {
                 trailers.push(TrailerInfo {
@@ -588,7 +609,10 @@ pub fn get_telemetry_data() -> Result<TelemetryData, String> {
         }
 
         Ok(TelemetryData {
-            timestamp: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs(),
+            timestamp: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
             game: GameInfo {
                 connected: raw.sdk_active == 1,
                 paused: raw.paused == 1,
@@ -612,7 +636,13 @@ pub fn get_telemetry_data() -> Result<TelemetryData, String> {
                     cabin: raw.wear_cabin * 100.0,
                     chassis: raw.wear_chassis * 100.0,
                     wheels: raw.wear_wheels * 100.0,
-                    total: (raw.wear_engine.max(raw.wear_transmission).max(raw.wear_cabin).max(raw.wear_chassis).max(raw.wear_wheels)) * 100.0,
+                    total: (raw
+                        .wear_engine
+                        .max(raw.wear_transmission)
+                        .max(raw.wear_cabin)
+                        .max(raw.wear_chassis)
+                        .max(raw.wear_wheels))
+                        * 100.0,
                 },
                 dash: DashStats {
                     speed: raw.speed * 3.6,
@@ -672,7 +702,7 @@ pub fn get_telemetry_data() -> Result<TelemetryData, String> {
                     cabin_pos: AuraPlacement::from(raw.cabin_placement),
                     head_pos: AuraPlacement::from(raw.head_placement),
                     hook_pos: AuraPlacement::from(raw.hook_placement),
-                    wheel_count: raw.wheel_count, 
+                    wheel_count: raw.wheel_count,
                 },
                 pos: AuraPlacement::from(raw.truck_placement), // Map main truck pos
                 navigation: NavigationInfo {
@@ -708,7 +738,9 @@ pub fn get_telemetry_data() -> Result<TelemetryData, String> {
                     auto_park: raw.job_auto_park_used == 1,
                     auto_load: raw.job_auto_load_used == 1,
                 })
-            } else { None },
+            } else {
+                None
+            },
             events: EventSummary {
                 job_finished_count: raw.job_finished_count,
                 last_ferry_source_id: read_cstr(&raw.last_ferry_source_id),
