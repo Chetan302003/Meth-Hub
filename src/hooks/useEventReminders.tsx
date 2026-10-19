@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { differenceInMinutes, parseISO, format } from 'date-fns';
 import { Bell, Calendar, CheckCircle } from 'lucide-react';
+import { sendNativeNotification } from '@/lib/tauri';
 
 interface CalendarEvent {
   id: string;
@@ -152,7 +153,10 @@ export function useEventReminders() {
       } : undefined,
     });
 
-    // Browser notification
+    // Native Desktop Notification (Tauri / Windows)
+    sendNativeNotification(title, body);
+
+    // Browser notification fallback
     if ('Notification' in window && Notification.permission === 'granted') {
       const notification = new Notification(title, {
         body,

@@ -98,31 +98,43 @@ export const startDragging = async (): Promise<void> => {
   await appWindow.startDragging();
 };
 
-// Native notifications (more efficient than browser API)
+// Native notifications (Tauri native Rust command with plugin & browser fallbacks)
 export const sendNativeNotification = async (
   title: string,
   body: string
 ): Promise<void> => {
-  const notificationPlugin = await getTauriNotification();
-
-  if (!notificationPlugin) {
-    // Fallback to browser notification
-    if ('Notification' in window && Notification.permission === 'granted') {
-      new Notification(title, { body });
+  if (isTauri()) {
+    try {
+      // Direct IPC to Rust backend (works reliably in production builds)
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('show_desktop_notification', { title, body });
+      return;
+    } catch (rustErr) {
+      console.warn('[Tauri] Rust notification invoke failed, falling back to plugin:', rustErr);
     }
-    return;
+
+    try {
+      const notificationPlugin = await getTauriNotification();
+      if (notificationPlugin) {
+        const { sendNotification, isPermissionGranted, requestPermission } = notificationPlugin;
+        let permitted = await isPermissionGranted();
+        if (!permitted) {
+          const permission = await requestPermission();
+          permitted = permission === 'granted';
+        }
+        if (permitted) {
+          sendNotification({ title, body });
+          return;
+        }
+      }
+    } catch (pluginErr) {
+      console.warn('[Tauri] Plugin notification failed:', pluginErr);
+    }
   }
 
-  const { sendNotification, isPermissionGranted, requestPermission } = notificationPlugin;
-
-  let permitted = await isPermissionGranted();
-  if (!permitted) {
-    const permission = await requestPermission();
-    permitted = permission === 'granted';
-  }
-
-  if (permitted) {
-    sendNotification({ title, body });
+  // Fallback to browser Notification API
+  if ('Notification' in window && Notification.permission === 'granted') {
+    new Notification(title, { body });
   }
 };
 

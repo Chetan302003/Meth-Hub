@@ -625,7 +625,7 @@ export default function DeveloperPanel() {
               onClick={async () => {
                 try {
                   await sendNativeNotification(
-                    "METH VTC Hub - Test Notification",
+                    "MY HUB - Test Notification",
                     "This is a test notification. Event reminders and desktop alerts are working!"
                   );
                   toast({

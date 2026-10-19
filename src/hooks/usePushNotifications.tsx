@@ -15,6 +15,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { differenceInMinutes, parseISO } from 'date-fns';
 import { Bell } from 'lucide-react';
+import { sendNativeNotification } from '@/lib/tauri';
 
 interface EventData {
   id: string;
@@ -64,7 +65,10 @@ export function usePushNotifications() {
       },
     });
 
-    // Browser notification (if permitted)
+    // Native Desktop Notification (Tauri / Windows)
+    sendNativeNotification(title, body);
+
+    // Browser notification fallback (if permitted)
     if ('Notification' in window && Notification.permission === 'granted') {
       const notification = new Notification(title, {
         body,

@@ -22,6 +22,19 @@ fn open_devtools(app: tauri::AppHandle) {
     }
 }
 
+use tauri_plugin_notification::NotificationExt;
+
+#[tauri::command]
+fn show_desktop_notification(app: tauri::AppHandle, title: String, body: String) -> Result<(), String> {
+    app.notification()
+        .builder()
+        .title(title)
+        .body(body)
+        .icon("icons/icon.png")
+        .show()
+        .map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 fn install_telemetry_plugin(app: AppHandle, custom_path: Option<String>) -> Result<String, String> {
     // Note: The dll must be bundled in `src-tauri/resources/myhub_telemetry.dll`
@@ -111,7 +124,8 @@ pub fn run() {
             install_telemetry_plugin,
             rpc::init_discord_rpc,
             rpc::set_discord_rpc,
-            rpc::clear_discord_rpc
+            rpc::clear_discord_rpc,
+            show_desktop_notification
         ])
         .setup(|app| {
             // Track an event immediately on startup to verify Rust connection

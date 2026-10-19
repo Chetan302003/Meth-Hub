@@ -43,4 +43,12 @@
 !macro NSIS_HOOK_POSTINSTALL
   ; Ensure new desktop shortcut is created
   CreateShortcut "$DESKTOP\MY HUB.lnk" "$INSTDIR\app.exe"
+
+  ; Ensure Start Menu shortcut exists with AppUserModelId (Required for Windows Action Center Toast Notifications)
+  CreateDirectory "$SMPROGRAMS\MY HUB"
+  CreateShortcut "$SMPROGRAMS\MY HUB\MY HUB.lnk" "$INSTDIR\app.exe" "" "$INSTDIR\app.exe" 0 "" "" "MY HUB Fleet Management"
+
+  ; Register AUMID into registry so Windows Notification Center always routes toasts
+  WriteRegStr HKCU "Software\Classes\AppUserModelId\com.methvtc.hub" "DisplayName" "MY HUB"
+  WriteRegStr HKCU "Software\Classes\AppUserModelId\com.methvtc.hub" "IconUri" "$INSTDIR\app.exe,0"
 !macroend

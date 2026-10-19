@@ -52,8 +52,8 @@
     "publisher": "METH VTC",
     "copyright": "© 2026 METH VTC",
     "category": "Utility",
-    "shortDescription": "METH VTC Hub",
-    "longDescription": "Fleet management hub for Euro Truck Simulator 2 VTC",
+    "shortDescription": "MY HUB",
+    "longDescription": "MY HUB - Fleet management hub for Euro Truck Simulator 2",
     "windows": {
       "webviewInstallMode": {
         "type": "embedBootstrapper"
