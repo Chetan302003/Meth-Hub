@@ -183,8 +183,9 @@ export function PlayerStats() {
             </thead>
             <tbody>
               {filteredStats.map(stat => {
-                // Determine online status combining the DB field and the real-time presence store
-                const isOnline = stat.is_online || onlineUsers.has(stat.user_id);
+                // Determine online status: active in real-time presence OR recent heartbeat within 4 minutes
+                const isHeartbeatFresh = stat.last_active && (Date.now() - new Date(stat.last_active).getTime()) < 4 * 60 * 1000;
+                const isOnline = onlineUsers.has(stat.user_id) || (stat.is_online && isHeartbeatFresh);
                 return (
                   <React.Fragment key={stat.user_id}>
                     <tr

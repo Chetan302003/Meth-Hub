@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { GlassCard } from '@/components/layout/GlassCard';
 import { Button } from '@/components/ui/button';
@@ -46,8 +47,6 @@ interface Announcement {
 }
 
 export default function Announcements() {
-  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-  const [loading, setLoading] = useState(true);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [editingAnnouncement, setEditingAnnouncement] = useState<Announcement | null>(null);
   const [form, setForm] = useState({
@@ -59,33 +58,24 @@ export default function Announcements() {
   
   const { user, hasRole } = useAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const canManage = hasRole('developer') || hasRole('superadmin') || hasRole('founder') || hasRole('management');
 
-  const fetchAnnouncements = async () => {
-    setLoading(true);
-    try {
+  const { data: announcements = [], isLoading: loading } = useQuery({
+    queryKey: ['announcements'],
+    queryFn: async () => {
       const { data, error } = await supabase
         .from('announcements')
         .select('*')
         .order('created_at', { ascending: false });
-
       if (error) throw error;
-      setAnnouncements((data || []) as Announcement[]);
-    } catch (error: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: error.message,
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+      return (data || []) as Announcement[];
+    },
+    staleTime: 30_000, // consider fresh for 30s
+  });
 
-  useEffect(() => {
-    fetchAnnouncements();
-  }, []);
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['announcements'] });
 
   const handleCreate = async () => {
     if (!form.title || !form.content) {
@@ -113,7 +103,7 @@ export default function Announcements() {
       toast({ title: 'Announcement Created', description: 'Your announcement is now live.' });
       setShowCreateDialog(false);
       setForm({ title: '', content: '', priority: 'normal' });
-      fetchAnnouncements();
+      invalidate();
     } catch (error: any) {
       toast({ variant: 'destructive', title: 'Error', description: error.message });
     } finally {
@@ -140,7 +130,7 @@ export default function Announcements() {
       toast({ title: 'Announcement Updated' });
       setEditingAnnouncement(null);
       setForm({ title: '', content: '', priority: 'normal' });
-      fetchAnnouncements();
+      invalidate();
     } catch (error: any) {
       toast({ variant: 'destructive', title: 'Error', description: error.message });
     } finally {
@@ -155,7 +145,7 @@ export default function Announcements() {
       if (error) throw error;
 
       toast({ title: 'Announcement Deleted' });
-      fetchAnnouncements();
+      invalidate();
     } catch (error: any) {
       toast({ variant: 'destructive', title: 'Error', description: error.message });
     } finally {
@@ -171,7 +161,7 @@ export default function Announcements() {
         .eq('id', announcement.id);
 
       if (error) throw error;
-      fetchAnnouncements();
+      invalidate();
     } catch (error: any) {
       toast({ variant: 'destructive', title: 'Error', description: error.message });
     }

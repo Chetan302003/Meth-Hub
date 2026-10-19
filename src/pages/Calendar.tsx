@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { GlassCard } from '@/components/layout/GlassCard';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { useTruckersMP, TMPEvent } from '@/hooks/useTruckersMP';
 import { useEventReminders, CalendarEvent as ReminderEvent } from '@/hooks/useEventReminders';
 import { useUIStore } from '@/stores/appStore';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { isTauri } from '@/lib/tauri';
 import { toast } from 'sonner';
@@ -68,46 +69,28 @@ export default function CalendarPage() {
   const notificationsEnabled = useUIStore((s) => s.notificationsEnabled);
   const setNotificationsEnabled = useUIStore((s) => s.setNotificationsEnabled);
   
-  const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
-  const [tmpEvents, setTmpEvents] = useState<TMPEvent[]>([]);
-  const [vtcEvents, setVtcEvents] = useState<VTCEvent[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
+  const queryClient = useQueryClient();
 
-  // Fetch all events
-  useEffect(() => {
-    fetchAllEvents();
-  }, []);
-
-  const fetchAllEvents = async () => {
-    setLoading(true);
-    await Promise.all([fetchTMPEvents(), fetchVTCEvents()]);
-    setLoading(false);
-  };
-
-  const fetchTMPEvents = async () => {
-    try {
+  // Fetch TMP events (cached 2 min)
+  const { data: tmpEvents = [] } = useQuery<TMPEvent[]>({
+    queryKey: ['calendarTmpEvents'],
+    queryFn: async () => {
       const events = await getEvents();
-      if (Array.isArray(events)) {
-        setTmpEvents(events);
-      } else if (events && typeof events === 'object' && 'response' in events) {
-        setTmpEvents((events as any).response || []);
-      } else {
-        setTmpEvents([]);
-      }
-    } catch (err) {
-      console.error("TMP Fetch Error:", err);
-      setTmpEvents([]);
-    }
-  };
+      if (Array.isArray(events)) return events;
+      if (events && typeof events === 'object' && 'response' in events) return (events as any).response || [];
+      return [];
+    },
+    staleTime: 120_000,
+  });
 
-  const fetchVTCEvents = async () => {
-    try {
+  // Fetch VTC events (internal + TMP-hosted, cached 60s)
+  const { data: vtcEvents = [], isLoading: loading } = useQuery<VTCEvent[]>({
+    queryKey: ['calendarVtcEvents'],
+    queryFn: async () => {
       const [supabaseResponse, tmpVtcEventsData] = await Promise.all([
         supabase.from('vtc_events').select('*').order('start_time', { ascending: true }),
-        getVTCEvents().catch(() => []) 
+        getVTCEvents().catch(() => [])
       ]);
-      
       const internalEvents = supabaseResponse.data || [];
       const externalEvents = (tmpVtcEventsData || []).map((event: any) => {
         let formattedStartTime = (event.startAt || event.start_at || new Date().toISOString()).replace(' ', 'T');
@@ -119,29 +102,29 @@ export default function CalendarPage() {
           event_type: event.event_type?.key || 'convoy',
           game: event.game || 'ETS2',
           departure_city: event.departure?.city || 'Unknown',
+          departure_location: event.departure?.location || null,
           arrival_city: event.arrive?.city || 'Unknown',
+          arrival_location: event.arrive?.location || null,
           start_time: formattedStartTime,
+          meetup_time: null,
           server_name: event.server?.name || null,
-          banner_url: event.banner || null
+          status: new Date(formattedStartTime) > new Date() ? 'upcoming' : 'completed',
+          banner_url: event.banner || null,
         };
       });
-
-      // Combine and filter for upcoming only
       const now = new Date();
       const combined = [
         ...internalEvents.map(e => ({ ...e, isInternal: true })),
         ...externalEvents.map(e => ({ ...e, isInternal: false }))
-      ].filter(event => {
-        const startTime = new Date(event.start_time).getTime();
-        return startTime >= now.getTime();
-      });
-      
-      setVtcEvents(combined as any[]);
-    } catch (error) {
-      console.error('Error fetching VTC events:', error);
-      setVtcEvents([]);
-    }
-  };
+      ].filter(event => new Date(event.start_time).getTime() >= now.getTime());
+
+      return combined as VTCEvent[];
+    },
+    staleTime: 60_000,
+  });
+
+  const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
 
   // Convert events to unified calendar format
   const calendarEvents = useMemo((): CalendarEvent[] => {
@@ -354,7 +337,10 @@ export default function CalendarPage() {
           <div className="flex flex-wrap gap-2">
             <Button
               variant="outline"
-              onClick={fetchAllEvents}
+              onClick={() => {
+                queryClient.invalidateQueries({ queryKey: ['calendarVtcEvents'] });
+                queryClient.invalidateQueries({ queryKey: ['calendarTmpEvents'] });
+              }}
               disabled={loading || tmpLoading}
               className="gap-2"
             >

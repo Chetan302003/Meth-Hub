@@ -20,7 +20,8 @@ interface CalendarEvent {
 const THRESHOLDS = [30, 15, 5, 1] as const;
 
 // Local storage key for reminders
-const REMINDERS_STORAGE_KEY = 'aura-event-reminders';
+const REMINDERS_STORAGE_KEY = 'event-reminders';
+const LEGACY_STORAGE_KEY = 'aura-event-reminders';
 
 /**
  * Hook for event reminder notifications
@@ -33,9 +34,9 @@ export function useEventReminders() {
   const intervalRef = useRef<number | null>(null);
   const [reminderEvents, setReminderEvents] = useState<CalendarEvent[]>([]);
 
-  // Load saved reminders from localStorage
+  // Load saved reminders from localStorage (with migration from legacy key)
   useEffect(() => {
-    const saved = localStorage.getItem(REMINDERS_STORAGE_KEY);
+    const saved = localStorage.getItem(REMINDERS_STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY);
     if (saved) {
       try {
         const parsed = JSON.parse(saved) as CalendarEvent[];
@@ -43,8 +44,11 @@ export function useEventReminders() {
         const now = new Date();
         const validReminders = parsed.filter(e => new Date(e.startTime) > now);
         setReminderEvents(validReminders);
-        // Clean up storage
+        // Clean up and ensure saved under new key
         localStorage.setItem(REMINDERS_STORAGE_KEY, JSON.stringify(validReminders));
+        if (localStorage.getItem(LEGACY_STORAGE_KEY)) {
+          localStorage.removeItem(LEGACY_STORAGE_KEY);
+        }
       } catch (e) {
         console.error('Failed to load reminders:', e);
       }

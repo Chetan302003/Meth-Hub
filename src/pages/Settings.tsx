@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useBrightness } from '@/hooks/useBrightness';
 import { supabase } from '@/integrations/supabase/client';
@@ -8,11 +8,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useToast } from '@/hooks/use-toast';
 import { useUIStore } from '@/stores/appStore';
 import { useAutoUpdater } from '@/hooks/useAutoUpdater';
+import { useTruckersMP } from '@/hooks/useTruckersMP';
 import { isTauri, setAlwaysOnTop, setOverlayMode } from '@/lib/tauri';
 import { PageTransition } from '@/components/transitions/PageTransition';
+import { useEffectiveAvatar, processImageFile, AvatarSource } from '@/lib/avatarStorage';
+import { cn } from '@/lib/utils';
 import { resolveResource } from '@tauri-apps/api/path';
 import { getVersion } from '@tauri-apps/api/app';
 import { exists, copyFile, mkdir } from '@tauri-apps/plugin-fs';
@@ -35,7 +40,11 @@ import {
   RefreshCw,
   FolderOpen,
   Download,
-  CheckCircle
+  CheckCircle,
+  Upload,
+  Trash2,
+  Camera,
+  Image as ImageIcon
 } from 'lucide-react';
 
 export default function Settings() {
@@ -45,6 +54,7 @@ export default function Settings() {
   const [tmpId, setTmpId] = useState(profile?.tmp_id || '');
   const { toast } = useToast();
   const { isChecking, checkForUpdates } = useAutoUpdater();
+  const { fetchPlayerAvatar } = useTruckersMP();
 
   // Zustand store for UI settings
   const {
@@ -60,6 +70,73 @@ export default function Settings() {
   const [pluginInstalled, setPluginInstalled] = useState(false);
   const [installingPlugin, setInstallingPlugin] = useState(false);
   const [appVersion, setAppVersion] = useState<string>('');
+
+  // Local Avatar State & Cache
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [tmpAvatarUrl, setTmpAvatarUrl] = useState<string | null>(profile?.avatar_url || null);
+
+  useEffect(() => {
+    if (profile?.avatar_url && !profile.avatar_url.includes('asset.localhost')) {
+      setTmpAvatarUrl(profile.avatar_url);
+    } else if (profile?.tmp_id) {
+      fetchPlayerAvatar(profile.tmp_id, profile.user_id).then((url) => {
+        if (url) setTmpAvatarUrl(url);
+      });
+    }
+  }, [profile?.avatar_url, profile?.tmp_id, profile?.user_id, fetchPlayerAvatar]);
+
+  const {
+    effectiveAvatar,
+    source: avatarSource,
+    hasLocalPhoto,
+    setSource: setAvatarSource,
+    saveLocalPhoto,
+    deleteLocalPhoto
+  } = useEffectiveAvatar(user?.id, tmpAvatarUrl);
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+
+    setUploadingPhoto(true);
+    try {
+      const dataUrl = await processImageFile(file);
+      saveLocalPhoto(dataUrl);
+      toast({
+        title: 'Profile Photo Uploaded',
+        description: 'Photo saved to your local device cache. Your Supabase profile remains unchanged.',
+      });
+    } catch (err: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Upload Failed',
+        description: err?.message || 'Could not process selected image.',
+      });
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const handleRemovePhoto = () => {
+    deleteLocalPhoto();
+    toast({
+      title: 'Local Photo Removed',
+      description: 'Locally cached profile photo removed. Showing TruckersMP fallback avatar.',
+    });
+  };
+
+  const handleSourceChange = (newSource: AvatarSource) => {
+    setAvatarSource(newSource);
+    toast({
+      title: 'Avatar Source Updated',
+      description:
+        newSource === 'local'
+          ? 'Using locally cached photo (immune to HR edits).'
+          : 'Using TruckersMP photo (reflects HR updates).',
+    });
+  };
 
   useEffect(() => {
     setIsDesktop(isTauri());
@@ -119,15 +196,14 @@ export default function Settings() {
     // Fetch avatar from TruckersMP if ID is provided
     let avatarUrl = profile?.avatar_url || null;
     if (tmpId && tmpId !== profile?.tmp_id) {
-      try {
-        const response = await fetch(`https://api.truckersmp.com/v2/player/${tmpId}`);
-        if (response.ok) {
-          const data = await response.json();
-          avatarUrl = data.response?.avatar || avatarUrl;
-        }
-      } catch (err) {
-        console.error('Failed to fetch TMP avatar:', err);
+      const fetched = await fetchPlayerAvatar(tmpId, user.id);
+      if (fetched) {
+        avatarUrl = fetched;
+        setTmpAvatarUrl(fetched);
       }
+    } else if (!tmpId) {
+      avatarUrl = null;
+      setTmpAvatarUrl(null);
     }
 
     const { error } = await supabase
@@ -209,14 +285,133 @@ export default function Settings() {
             </h3>
 
             <div className="space-y-6">
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-2xl sm:text-3xl neon-pulse">
-                  {profile?.username?.charAt(0).toUpperCase() || 'U'}
+              {/* Profile Avatar & Details */}
+              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-5">
+                <div className="relative group shrink-0">
+                  <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-2xl sm:text-3xl overflow-hidden border-2 border-primary/30 shadow-inner">
+                    {effectiveAvatar ? (
+                      <img
+                        src={effectiveAvatar}
+                        alt={profile?.username || 'User'}
+                        className="w-full h-full object-cover"
+                        onError={() => setTmpAvatarUrl(null)}
+                      />
+                    ) : (
+                      profile?.username?.charAt(0).toUpperCase() || 'U'
+                    )}
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-lg sm:text-xl font-semibold truncate">{profile?.username}</p>
-                  <p className="text-muted-foreground text-sm truncate">{profile?.email}</p>
+
+                <div className="flex-1 min-w-0 text-center sm:text-left space-y-2">
+                  <div>
+                    <p className="text-lg sm:text-xl font-semibold truncate">{profile?.username}</p>
+                    <p className="text-muted-foreground text-sm truncate">{profile?.email}</p>
+                  </div>
+
+                  {/* Photo Actions */}
+                  <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-1">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      className="hidden"
+                      onChange={handlePhotoUpload}
+                    />
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={uploadingPhoto}
+                      onClick={() => fileInputRef.current?.click()}
+                      className="text-xs h-8 gap-1.5"
+                    >
+                      {uploadingPhoto ? (
+                        <Loader2 size={13} className="animate-spin" />
+                      ) : (
+                        <Camera size={13} />
+                      )}
+                      {hasLocalPhoto ? 'Change Photo' : 'Upload Photo'}
+                    </Button>
+
+                    {hasLocalPhoto && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleRemovePhoto}
+                        className="text-xs h-8 text-destructive hover:bg-destructive/10 hover:text-destructive gap-1.5"
+                      >
+                        <Trash2 size={13} />
+                        Remove Photo
+                      </Button>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Upload JPG or PNG (max 5MB). Photo is saved in your local device cache only and not sent to server.
+                  </p>
                 </div>
+              </div>
+
+              {/* Profile Photo Source Option */}
+              <div className="space-y-3 pt-3 border-t border-border/40">
+                <Label className="text-sm font-medium flex items-center gap-2">
+                  <ImageIcon size={15} className="text-primary" />
+                  Profile Photo Source
+                </Label>
+
+                <RadioGroup
+                  value={avatarSource}
+                  onValueChange={(val) => handleSourceChange(val as AvatarSource)}
+                  className="grid grid-cols-1 sm:grid-cols-2 gap-3"
+                >
+                  <label
+                    htmlFor="source-local"
+                    className={cn(
+                      "flex items-start gap-3 p-3.5 rounded-xl border transition-all cursor-pointer select-none",
+                      avatarSource === 'local'
+                        ? "border-primary/60 bg-primary/10 shadow-sm shadow-primary/10"
+                        : "border-border/60 bg-card/40 hover:bg-secondary/40"
+                    )}
+                  >
+                    <RadioGroupItem value="local" id="source-local" className="mt-0.5" />
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold">Use my uploaded photo</span>
+                        <Badge variant="secondary" className="text-[10px] py-0 px-1.5 h-4">Local cache</Badge>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground leading-relaxed">
+                        Shows the photo you uploaded. Changes made by HR in User Management do not affect it.
+                      </p>
+                      {!hasLocalPhoto && avatarSource === 'local' && (
+                        <p className="text-[10px] text-amber-500 font-medium">
+                          No local photo uploaded yet. Falling back to TMP photo.
+                        </p>
+                      )}
+                    </div>
+                  </label>
+
+                  <label
+                    htmlFor="source-tmp"
+                    className={cn(
+                      "flex items-start gap-3 p-3.5 rounded-xl border transition-all cursor-pointer select-none",
+                      avatarSource === 'tmp'
+                        ? "border-primary/60 bg-primary/10 shadow-sm shadow-primary/10"
+                        : "border-border/60 bg-card/40 hover:bg-secondary/40"
+                    )}
+                  >
+                    <RadioGroupItem value="tmp" id="source-tmp" className="mt-0.5" />
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold">Use photo from TMP</span>
+                        <Badge variant="secondary" className="text-[10px] py-0 px-1.5 h-4">TruckersMP</Badge>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground leading-relaxed">
+                        Fetches and shows the photo from TMP, reflecting any update HR makes.
+                      </p>
+                    </div>
+                  </label>
+                </RadioGroup>
               </div>
 
               <div className="space-y-2">
@@ -460,10 +655,10 @@ export default function Settings() {
                   <p className="text-xs text-muted-foreground">Your account verification status</p>
                 </div>
                 <span className={`px-3 py-1 rounded-full text-xs font-medium w-fit ${profile?.approval_status === 'approved'
-                    ? 'bg-primary/20 text-primary'
-                    : profile?.approval_status === 'pending'
-                      ? 'bg-amber-500/20 text-amber-500'
-                      : 'bg-destructive/20 text-destructive'
+                  ? 'bg-primary/20 text-primary'
+                  : profile?.approval_status === 'pending'
+                    ? 'bg-amber-500/20 text-amber-500'
+                    : 'bg-destructive/20 text-destructive'
                   }`}>
                   {profile?.approval_status || 'pending'}
                 </span>

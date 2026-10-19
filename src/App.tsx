@@ -181,7 +181,7 @@ const App = () => (
       <div className="min-h-screen bg-aura-dark text-white flex flex-col">
         <Titlebar />
         <main className="flex-1 pt-10">
-          <HashRouter>
+          <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <AuthProvider>
               <TelemetryProvider>
                 <GlobalHooks />

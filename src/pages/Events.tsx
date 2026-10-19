@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { useAuth } from '@/hooks/useAuth';
 import { useTruckersMP, TMPEvent } from '@/hooks/useTruckersMP';
 import { supabase } from '@/integrations/supabase/client';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { format, formatDistanceToNow, parseISO, isFuture } from 'date-fns';
 import {
@@ -65,15 +66,12 @@ interface VTCEvent {
 export default function Events() {
   const { user, profile, isStaff } = useAuth();
   const { getEvents, getVTCEvents, getServers, loading: tmpLoading } = useTruckersMP();
+  const queryClient = useQueryClient();
 
   const [activeTab, setActiveTab] = useState('vtc');
-  const [tmpEvents, setTmpEvents] = useState<TMPEvent[]>([]);
-  const [vtcEvents, setVtcEvents] = useState<VTCEvent[]>([]);
-  const [servers, setServers] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [editingEvent, setEditingEvent] = useState<VTCEvent | null>(null);
-  const [tmpEventCount, setTmpEventCount] = useState(10); // How many TMP events to display
+  const [tmpEventCount, setTmpEventCount] = useState(10);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -93,56 +91,41 @@ export default function Events() {
     route_url: ''
   });
 
-  // Fetch all data
-  useEffect(() => {
-    fetchAllData();
-  }, []);
-
-  const fetchAllData = async () => {
-    setLoading(true);
-    await Promise.all([
-      fetchTMPEvents(),
-      fetchVTCEvents(),
-      fetchServers()
-    ]);
-    setLoading(false);
-  };
-
-  const fetchTMPEvents = async () => {
-    try {
+  // TMP Events (cached 2 min)
+  const { data: tmpEvents = [] } = useQuery<TMPEvent[]>({
+    queryKey: ['eventsTmpEvents'],
+    queryFn: async () => {
       const events = await getEvents();
-      if (Array.isArray(events)) {
-        setTmpEvents(events);
-      } else if (events && typeof events === 'object' && 'response' in events) {
-        setTmpEvents((events as any).response || []);
-      } else {
-        setTmpEvents([]);
-      }
-    } catch (err) {
-      console.error("TMP Fetch Error:", err);
-      setTmpEvents([]);
-    }
-  };
+      if (Array.isArray(events)) return events;
+      if (events && typeof events === 'object' && 'response' in events) return (events as any).response || [];
+      return [];
+    },
+    staleTime: 120_000,
+  });
 
-  const fetchVTCEvents = async () => {
-    try {
+  // Servers (cached 5 min)
+  const { data: servers = [] } = useQuery<any[]>({
+    queryKey: ['eventsServers'],
+    queryFn: () => getServers(),
+    staleTime: 300_000,
+  });
+
+  // VTC Events (cached 60s)
+  const { data: vtcEvents = [], isLoading: loading } = useQuery<VTCEvent[]>({
+    queryKey: ['eventsVtcEvents'],
+    queryFn: async () => {
       const [supabaseResponse, tmpVtcEventsData] = await Promise.all([
         supabase.from('vtc_events').select('*').order('start_time', { ascending: true }),
-        getVTCEvents().catch(() => []) // Fallback in case fetch fails
+        getVTCEvents().catch(() => [])
       ]);
-
       const safeData = supabaseResponse.data || [];
-      const supabaseEvents = await Promise.all(safeData.map(async (event) => {
-        return {
-          ...event,
-          start_time: event.start_time || new Date().toISOString(),
-          participant_count: 0,
-          is_participating: false
-        };
+      const supabaseEvents = safeData.map((event) => ({
+        ...event,
+        start_time: event.start_time || new Date().toISOString(),
+        participant_count: 0,
+        is_participating: false
       }));
-
       const externalVtcEvents = (tmpVtcEventsData || []).map((event: any) => {
-        // Fix dates missing 'T' (e.g., "2025-02-14 12:56:35" -> "2025-02-14T12:56:35")
         const formattedStartTime = (event.startAt || event.start_at || new Date().toISOString()).replace(' ', 'T');
         return {
           id: `tmp-vtc-${event.id}`,
@@ -168,23 +151,14 @@ export default function Events() {
           is_participating: false
         };
       });
-
-      // Combine and sort by start time
-      const combinedEvents = [...supabaseEvents, ...externalVtcEvents].sort(
+      return [...supabaseEvents, ...externalVtcEvents].sort(
         (a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
-      );
+      ) as VTCEvent[];
+    },
+    staleTime: 60_000,
+  });
 
-      setVtcEvents(combinedEvents);
-    } catch (error) {
-      console.error('Error fetching combined VTC events:', error);
-      setVtcEvents([]);
-    }
-  };
-
-  const fetchServers = async () => {
-    const serverData = await getServers();
-    setServers(serverData);
-  };
+  const invalidateVtcEvents = () => queryClient.invalidateQueries({ queryKey: ['eventsVtcEvents'] });
 
   const handleCreateEvent = async () => {
     if (!formData.title || !formData.departure_city || !formData.arrival_city || !formData.start_time) {
@@ -211,7 +185,7 @@ export default function Events() {
     toast.success('Event created successfully');
     setShowCreateDialog(false);
     resetForm();
-    fetchVTCEvents();
+    invalidateVtcEvents();
   };
 
   const handleUpdateEvent = async () => {
@@ -236,7 +210,7 @@ export default function Events() {
     toast.success('Event updated successfully');
     setEditingEvent(null);
     resetForm();
-    fetchVTCEvents();
+    invalidateVtcEvents();
   };
 
   const handleDeleteEvent = async (eventId: string) => {
@@ -251,7 +225,7 @@ export default function Events() {
     }
 
     toast.success('Event deleted');
-    fetchVTCEvents();
+    invalidateVtcEvents();
   };
 
   const handleRSVP = async (eventId: string, isParticipating: boolean) => {
@@ -281,7 +255,7 @@ export default function Events() {
       toast.success('You\'re signed up for this event!');
     }
 
-    fetchVTCEvents();
+    invalidateVtcEvents();
   };
 
   const resetForm = () => {
@@ -368,7 +342,11 @@ export default function Events() {
           <div className="flex gap-2">
             <Button
               variant="outline"
-              onClick={fetchAllData}
+              onClick={() => {
+                queryClient.invalidateQueries({ queryKey: ['eventsVtcEvents'] });
+                queryClient.invalidateQueries({ queryKey: ['eventsTmpEvents'] });
+                queryClient.invalidateQueries({ queryKey: ['eventsServers'] });
+              }}
               disabled={loading || tmpLoading}
               className="gap-2 rounded-full"
             >
@@ -828,20 +806,20 @@ function VTCEventCard({
                     size="icon"
                     title="Push Notification to App Users"
                     onClick={async () => {
-                        const channel = supabase.channel('aura-broadcasts');
-                        const result = await channel.httpSend('event-alert', {
-                          title: `🚛 METH VTC: ${event.title}`,
-                          body: `${event.departure_city} → ${event.arrival_city} — ${format(parseISO(event.start_time), 'MMM dd, HH:mm')}`,
-                          url: '/events',
-                          sentBy: profile?.username || 'Staff',
-                        });
-                        
-                        if (result.success) {
-                          toast.success('Notification broadcasted to all online drivers!');
-                        } else {
-                          console.error('Broadcast error:', result);
-                          toast.error('Failed to send broadcast');
-                        }
+                      const channel = supabase.channel('aura-broadcasts');
+                      const result = await channel.httpSend('event-alert', {
+                        title: `🚛 METH VTC: ${event.title}`,
+                        body: `${event.departure_city} → ${event.arrival_city} — ${format(parseISO(event.start_time), 'MMM dd, HH:mm')}`,
+                        url: '/events',
+                        sentBy: profile?.username || 'Staff',
+                      });
+
+                      if (result.success) {
+                        toast.success('Notification broadcasted to all online drivers!');
+                      } else {
+                        console.error('Broadcast error:', result);
+                        toast.error('Failed to send broadcast');
+                      }
                     }}
                   >
                     <Send size={16} className="text-blue-400" />

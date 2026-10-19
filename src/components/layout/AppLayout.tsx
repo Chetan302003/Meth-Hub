@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { useTruckersMP } from '@/hooks/useTruckersMP';
 import { useAutoUpdater } from '@/hooks/useAutoUpdater';
+import { useEffectiveAvatar } from '@/lib/avatarStorage';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { supabase } from '@/integrations/supabase/client';
 import { isTauri } from '@tauri-apps/api/core';
@@ -58,7 +59,8 @@ export function AppLayout({ children }: AppLayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [tmpAvatarUrl, setTmpAvatarUrl] = useState<string | null>(null);
+  const { effectiveAvatar } = useEffectiveAvatar(profile?.user_id, tmpAvatarUrl);
 
   const { isChecking, checkForUpdates } = useAutoUpdater();
   const [appVersion, setAppVersion] = useState<string>('1.0.0');
@@ -100,14 +102,18 @@ export function AppLayout({ children }: AppLayoutProps) {
   useEffect(() => {
     const loadAvatar = async () => {
       if (profile?.tmp_id) {
-        const avatar = await fetchPlayerAvatar(profile.tmp_id);
-        if (avatar) setAvatarUrl(avatar);
+        if (profile.avatar_url && !profile.avatar_url.includes('asset.localhost')) {
+          setTmpAvatarUrl(profile.avatar_url);
+        } else {
+          const avatar = await fetchPlayerAvatar(profile.tmp_id, profile.user_id);
+          if (avatar) setTmpAvatarUrl(avatar);
+        }
       } else if (profile?.avatar_url) {
-        setAvatarUrl(profile.avatar_url);
+        setTmpAvatarUrl(profile.avatar_url);
       }
     };
     loadAvatar();
-  }, [profile?.tmp_id, profile?.avatar_url, fetchPlayerAvatar]);
+  }, [profile?.tmp_id, profile?.avatar_url, profile?.user_id, fetchPlayerAvatar]);
 
   const setOnlineUsers = usePresenceStore(state => state.setOnlineUsers);
 
@@ -184,12 +190,12 @@ export function AppLayout({ children }: AppLayoutProps) {
           <div className="glass-card p-3 sm:p-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 sm:w-12 sm:h-12 shrink-0 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-base sm:text-lg neon-pulse overflow-hidden">
-                {avatarUrl ? (
+                {effectiveAvatar ? (
                   <img
-                    src={avatarUrl}
+                    src={effectiveAvatar}
                     alt={profile?.username}
                     className="w-full h-full object-cover"
-                    onError={() => setAvatarUrl(null)}
+                    onError={() => setTmpAvatarUrl(null)}
                   />
                 ) : (
                   profile?.username?.charAt(0).toUpperCase() || 'U'

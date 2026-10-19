@@ -197,12 +197,12 @@ export default function UserManagement() {
     }
     
     setActionLoading(true);
-    const avatar = await fetchPlayerAvatar(editForm.tmp_id);
+    const avatar = await fetchPlayerAvatar(editForm.tmp_id, editingUser?.user_id);
     if (avatar) {
       setEditForm(prev => ({ ...prev, avatar_url: avatar }));
-      toast({ title: 'Avatar Fetched', description: 'TruckersMP avatar has been loaded.' });
+      toast({ title: 'Avatar Fetched & Saved', description: 'TruckersMP avatar has been loaded and synced to Supabase database.' });
     } else {
-      toast({ variant: 'destructive', title: 'Failed', description: 'Could not fetch TMP avatar.' });
+      toast({ variant: 'destructive', title: 'Failed', description: 'Could not fetch TMP avatar. Check if ID exists on TruckersMP.' });
     }
     setActionLoading(false);
   };

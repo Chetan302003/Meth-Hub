@@ -32,10 +32,12 @@ import {
   Calendar,
   MapPin,
   RefreshCw,
-  Trash2
+  Trash2,
+  Bell
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
+import { sendNativeNotification } from '@/lib/tauri';
 
 interface AppVersion {
   current: string;
@@ -616,6 +618,31 @@ export default function DeveloperPanel() {
               }}
             >
               Send Aptabase Event
+            </Button>
+            <Button
+              variant="outline"
+              className="border-primary/50 hover:bg-primary/10 text-primary"
+              onClick={async () => {
+                try {
+                  await sendNativeNotification(
+                    "METH VTC Hub - Test Notification",
+                    "This is a test notification. Event reminders and desktop alerts are working!"
+                  );
+                  toast({
+                    title: "Test Notification Dispatched",
+                    description: "Check your Windows notifications / taskbar banner.",
+                  });
+                } catch (err: any) {
+                  toast({
+                    variant: "destructive",
+                    title: "Notification Failed",
+                    description: err?.message || String(err),
+                  });
+                }
+              }}
+            >
+              <Bell className="w-4 h-4 mr-2" />
+              Send Test Notification
             </Button>
             <Button
               variant="secondary"

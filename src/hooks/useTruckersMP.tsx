@@ -5,6 +5,7 @@ import { convertFileSrc } from '@tauri-apps/api/core';
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 import { isTauri } from '@/lib/tauri';
 import { VTC_ID } from '@/config/vtc';
+import { supabase } from '@/integrations/supabase/client';
 
 export { VTC_ID };
 
@@ -137,35 +138,45 @@ export function useTruckersMP() {
     return `https://truckersmp.com/user/${tmpId}/avatar`;
   }, []);
 
-  // Fetch player avatar using edge function (and cache locally to disk if Tauri)
-  const fetchPlayerAvatar = useCallback(async (tmpId: string): Promise<string | null> => {
+  // Fetch player avatar and automatically sync it to Supabase profiles
+  const fetchPlayerAvatar = useCallback(async (tmpId: string, userId?: string): Promise<string | null> => {
     if (!tmpId || !/^\d+$/.test(tmpId)) return null;
 
     try {
-      if (isTauri()) {
-        try {
-          const dir = await appLocalDataDir();
-          const cacheDir = await join(dir, 'avatars');
-          const filePath = await join(cacheDir, `${tmpId}.png`);
-
-          if (await exists(filePath)) {
-            console.log('[TMP] Loaded avatar from local cache:', filePath);
-            return convertFileSrc(filePath);
-          }
-        } catch (e) {
-          console.error('[TMP] Error checking local cache:', e);
-        }
-      }
 
       // Fetch player data via native Tauri HTTP:
       const response = await tauriFetch(`https://api.truckersmp.com/v2/player/${tmpId}`, {
         method: 'GET'
       });
+      if (response.status === 404) {
+        console.warn(`[TMP] Player not found on TruckersMP (ID: ${tmpId})`);
+        return null;
+      }
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
 
       const extracted = data?.response || data;
       const avatarUrl = extracted?.avatar || null;
+
+      if (!avatarUrl) return null;
+
+      // Automatically sync the avatar to Supabase database
+      try {
+        let query = supabase.from('profiles').update({ avatar_url: avatarUrl });
+        if (userId) {
+          query = query.eq('user_id', userId);
+        } else {
+          query = query.eq('tmp_id', tmpId);
+        }
+        const { error: dbError } = await query;
+        if (dbError) {
+          console.error('[TMP] Failed to sync avatar to Supabase:', dbError);
+        } else {
+          console.log(`[TMP] Synced avatar to Supabase database for TMP ID ${tmpId}:`, avatarUrl);
+        }
+      } catch (dbErr) {
+        console.error('[TMP] Error updating Supabase profile avatar:', dbErr);
+      }
 
       if (avatarUrl && isTauri()) {
         try {
@@ -184,8 +195,7 @@ export function useTruckersMP() {
           if (response.ok) {
             const buffer = await response.arrayBuffer();
             await writeFile(filePath, new Uint8Array(buffer));
-            console.log('[TMP] Saved avatar to local cache:', filePath);
-            return convertFileSrc(filePath);
+            console.log('[TMP] Cached avatar to local disk:', filePath);
           } else {
             console.error('[TMP] Failed to download avatar, status:', response.status);
           }
