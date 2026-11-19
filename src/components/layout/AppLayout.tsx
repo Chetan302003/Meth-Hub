@@ -78,7 +78,7 @@ export function AppLayout({ children }: AppLayoutProps) {
         .then((v) => setAppVersion(v.replace(/^v/, '').trim()))
         .catch(console.error);
     }
-    
+
     // Check global updates table for latest advertised version
     supabase
       .from('app_settings')
@@ -120,7 +120,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   // Track Supabase Presence
   useEffect(() => {
     if (!profile?.user_id) return;
-    
+
     const presenceChannel = supabase.channel('global-presence', {
       config: { presence: { key: profile.user_id } }
     });
@@ -284,18 +284,26 @@ export function AppLayout({ children }: AppLayoutProps) {
         <footer className="shrink-0 px-4 sm:px-6 lg:px-8 py-2 border-t border-border/30 bg-background/95 backdrop-blur-sm">
           <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-1 text-[11px] text-muted-foreground/50">
             <span>© {new Date().getFullYear()} METH VTC · All rights reserved</span>
+            <span><a href="#" onClick={(e) => {
+              e.preventDefault();
+              if (isTauri()) {
+                open("https://chetanmahajan.site");
+              } else {
+                window.open("https://chetanmahajan.site", "_blank");
+              }
+            }} className="hover:text-primary transition-colors cursor-pointer">Contact US</a></span>
             <span>Designed & Developed by <a href="#" onClick={(e) => {
               e.preventDefault();
               if (isTauri()) {
-                open("https://chetanmahajan.vercel.app");
+                open("https://myhub.combined.top/contact");
               } else {
-                window.open("https://chetanmahajan.vercel.app", "_blank");
+                window.open("https://myhub.combined.top/contact", "_blank");
               }
             }} className="hover:text-primary transition-colors cursor-pointer">Chetan</a></span>
           </div>
         </footer>
       </main>
-      
+
       <UpdateAnnouncementModal />
     </div>
   );
