@@ -1,6 +1,6 @@
 // src-tauri/src/telemetry.rs
 // Synchronized with minimal aura_hub_telemetry.cpp + requested channels
-// Shared Memory Version: 1
+// Shared Memory Version: 7
 
 use serde::Serialize;
 use std::ffi::OsStr;
@@ -12,10 +12,12 @@ use windows::Win32::System::Memory::{
 };
 
 const SHARED_MEM_NAME: &str = "Local\\AuraHubTelemetry";
-const SHARED_MEM_VERSION: u32 = 6;
+const SHARED_MEM_VERSION: u32 = 7;
 const MAX_WHEELS: usize = 16;
 const MAX_TRAILERS: usize = 3;
 const MAX_HSHIFTER_SLOTS: usize = 32;
+
+const _: () = assert!(std::mem::size_of::<AuraTelemetryRaw>() == 4856);
 
 #[repr(C, packed)]
 #[derive(Copy, Clone)]
@@ -191,8 +193,8 @@ struct AuraTelemetryRaw {
     light_reverse: u8,
     light_lblinker: u8,
     light_rblinker: u8,
-    light_aux_front: u32,
-    light_aux_roof: u32,
+    light_aux_front: u8,
+    light_aux_roof: u8,
     lblinker: u8,
     rblinker: u8,
     hazard_warning: u8,
@@ -324,6 +326,64 @@ struct AuraTelemetryRaw {
     event_fuel_count: u32,
     event_repair_amount: i64,
     event_repair_count: u32,
+
+    // --- Bus / Coach Job Channels (Coaches DLC) ---
+    bus_job_active: u8,
+    bus_job_event: u8, // 0=none, 1=completed, 2=cancelled
+    bus_jobs_finished_count: u32,
+    bus_job_market: [u8; 32],
+    bus_stages_count: u32,
+    bus_stages_current: u32,
+
+    source_stop_type: [u8; 32],
+    source_stop_id: [u8; 64],
+    source_stop_name: [u8; 64],
+
+    dest_stop_type: [u8; 32],
+    dest_stop_id: [u8; 64],
+    dest_stop_name: [u8; 64],
+
+    source_departure_time_planned: u32,
+    source_departure_time_actual: u32,
+    dest_arrival_time_planned: u32,
+    dest_arrival_time_actual: u32,
+
+    passengers_entering_planned: u32,
+    passengers_leaving_planned: u32,
+
+    passenger_satisfaction: f32,
+
+    // --- Bus Telemetry Data Block (Memory Reader: 520 bytes) ---
+    bus: BusTelemetryDataRaw,
+}
+
+#[repr(C, packed)]
+#[derive(Copy, Clone)]
+pub struct BusStopInfoRaw {
+    pub stop_type: [u8; 32],
+    pub id: [u8; 64],
+    pub name: [u8; 128],
+}
+
+#[repr(C, packed)]
+#[derive(Copy, Clone)]
+pub struct BusTelemetryDataRaw {
+    pub valid: u8,
+    pub job_completed: u8,
+    pub job_cancelled: u8,
+    pub _pad: u8,
+    pub job_market: [u8; 32],
+    pub stages_count: u32,
+    pub stages_current: u32,
+    pub source_stop: BusStopInfoRaw,
+    pub destination_stop: BusStopInfoRaw,
+    pub source_departure_planned: u32,
+    pub source_departure_actual: u32,
+    pub destination_arrival_planned: u32,
+    pub destination_arrival_actual: u32,
+    pub source_entering_passengers_planned: u32,
+    pub destination_leaving_passengers_planned: u32,
+    pub passenger_satisfaction: f32,
 }
 
 #[derive(Serialize)]
@@ -333,6 +393,7 @@ pub struct TelemetryData {
     pub truck: TruckInfo,
     pub trailer: Vec<TrailerInfo>, // Changed to array
     pub job: Option<JobInfo>,
+    pub bus_job: Option<BusJobInfo>,
     pub events: EventSummary,
     pub timestamp: u64,
 }
@@ -503,6 +564,31 @@ pub struct JobInfo {
     pub auto_load: bool,
 }
 
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct BusJobInfo {
+    pub active: bool,
+    pub valid: bool,
+    pub event: u8,
+    pub finished_count: u32,
+    pub market: String,
+    pub stages_count: u32,
+    pub stages_current: u32,
+    pub source_stop_type: String,
+    pub source_stop_id: String,
+    pub source_stop_name: String,
+    pub destination_stop_type: String,
+    pub destination_stop_id: String,
+    pub destination_stop_name: String,
+    pub source_departure_time_planned: u32,
+    pub source_departure_time_actual: u32,
+    pub destination_arrival_time_planned: u32,
+    pub destination_arrival_time_actual: u32,
+    pub passengers_entering_planned: u32,
+    pub passengers_leaving_planned: u32,
+    pub passenger_satisfaction: f32,
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EventSummary {
@@ -511,6 +597,8 @@ pub struct EventSummary {
     pub last_ferry_target_id: String,
     pub last_train_source_id: String,
     pub last_train_target_id: String,
+    pub ferry_amount: f32,
+    pub train_amount: f32,
     pub fine_amount: i64,
     pub toll_amount: i64,
     pub fuel_amount: i64,
@@ -547,64 +635,90 @@ pub fn get_telemetry_data() -> Result<TelemetryData, String> {
             FILE_MAP_READ,
             0,
             0,
-            std::mem::size_of::<AuraTelemetryRaw>(),
+            0,
         );
         if ptr.Value.is_null() {
             CloseHandle(hmap).ok();
             return Err("MapViewOfFile failed".into());
         }
 
-        let raw = std::ptr::read_unaligned(ptr.Value as *const AuraTelemetryRaw);
-        UnmapViewOfFile(ptr).ok();
-        CloseHandle(hmap).ok();
-
-        let got_version = raw.version;
-        if got_version != SHARED_MEM_VERSION {
+        let mut raw = std::mem::zeroed::<AuraTelemetryRaw>();
+        let ver = std::ptr::read_unaligned(ptr.Value as *const u32);
+        if ver != SHARED_MEM_VERSION && ver != 6 {
+            UnmapViewOfFile(ptr).ok();
+            CloseHandle(hmap).ok();
             return Err(format!(
                 "Version mismatch: got {}, need {}",
-                got_version, SHARED_MEM_VERSION
+                ver, SHARED_MEM_VERSION
             ));
         }
 
-        let mut trailers = Vec::new();
-        for i in 0..MAX_TRAILERS {
-            let id = read_cstr(&raw.trailer_id[i]);
-            let attached_flag = { raw.trailer_attached[i] };
+        let copy_len = if ver == 6 {
+            // v6 struct ends before coach extensions (offset of bus_job_active)
+            std::mem::offset_of!(AuraTelemetryRaw, bus_job_active)
+        } else {
+            std::mem::size_of::<AuraTelemetryRaw>()
+        };
 
-            // The C++ plugin doesn't always set trailer_attached and doesn't clear trailer_id when detached.
-            // trailer_placement is also always zero.
-            // We check multiple physics indicators (substance, on_ground, suspension) to detect presence.
-            let mut has_physics = false;
-            // Check the first 6 wheels of this trailer slot
-            for w in 0..6 {
-                let wheel_idx = i * 6 + w;
-                if wheel_idx < MAX_WHEELS {
-                    if { raw.trailer_wheel_substance[wheel_idx] } > 0
-                        || { raw.trailer_wheel_on_ground[wheel_idx] } > 0
-                        || { raw.trailer_wheel_susp[wheel_idx] } > 0.0
-                    {
-                        has_physics = true;
-                        break;
+        // Guard against over-reading beyond committed memory
+        let mut mbi = windows::Win32::System::Memory::MEMORY_BASIC_INFORMATION::default();
+        let query_res = windows::Win32::System::Memory::VirtualQuery(
+            Some(ptr.Value),
+            &mut mbi,
+            std::mem::size_of::<windows::Win32::System::Memory::MEMORY_BASIC_INFORMATION>(),
+        );
+        let max_readable = if query_res > 0 && mbi.RegionSize > 0 {
+            mbi.RegionSize
+        } else {
+            std::mem::size_of::<AuraTelemetryRaw>()
+        };
+        let safe_copy_len = copy_len.min(max_readable);
+
+        std::ptr::copy_nonoverlapping(ptr.Value as *const u8, &mut raw as *mut AuraTelemetryRaw as *mut u8, safe_copy_len);
+        UnmapViewOfFile(ptr).ok();
+        CloseHandle(hmap).ok();
+
+        let is_bus_session = raw.bus_job_active == 1
+            || read_cstr(&raw.job_cargo_name) == "Passengers"
+            || read_cstr(&raw.job_cargo_id) == "passengers";
+
+        let mut trailers = Vec::new();
+        if !is_bus_session {
+            for i in 0..MAX_TRAILERS {
+                let id = read_cstr(&raw.trailer_id[i]);
+                let attached_flag = { raw.trailer_attached[i] };
+
+                let mut has_physics = false;
+                if i == 0 {
+                    // Check wheels of the primary trailer slot
+                    for w in 0..6 {
+                        if w < MAX_WHEELS {
+                            if { raw.trailer_wheel_substance[w] } > 0
+                                || { raw.trailer_wheel_on_ground[w] } > 0
+                                || { raw.trailer_wheel_susp[w] } > 0.0
+                            {
+                                has_physics = true;
+                                break;
+                            }
+                        }
                     }
                 }
-            }
 
-            // If we have an active job and this is the first trailer slot, it's definitely attached
-            let is_first_trailer_with_job = i == 0 && raw.job_active == 1 && !id.is_empty();
+                // Require non-empty ID when attached_flag is 1 so unhitched trucks don't report phantom trailers
+                let is_first_trailer_with_job = i == 0 && raw.job_active == 1 && !id.is_empty();
+                let is_attached = (!id.is_empty() && attached_flag == 1) || is_first_trailer_with_job || (has_physics && !id.is_empty());
 
-            let is_attached =
-                attached_flag == 1 || is_first_trailer_with_job || (has_physics && !id.is_empty());
-
-            if is_attached {
-                trailers.push(TrailerInfo {
-                    attached: true,
-                    id,
-                    brand: read_cstr(&raw.trailer_brand[i]),
-                    body_type: read_cstr(&raw.trailer_body_type[i]),
-                    chain_type: read_cstr(&raw.trailer_chain_type[i]),
-                    license_plate: read_cstr(&raw.trailer_plate[i]),
-                    damage: { raw.trailer_wear_chassis[i] } * 100.0,
-                });
+                if is_attached {
+                    trailers.push(TrailerInfo {
+                        attached: true,
+                        id,
+                        brand: read_cstr(&raw.trailer_brand[i]),
+                        body_type: read_cstr(&raw.trailer_body_type[i]),
+                        chain_type: read_cstr(&raw.trailer_chain_type[i]),
+                        license_plate: read_cstr(&raw.trailer_plate[i]),
+                        damage: { raw.trailer_wear_chassis[i] } * 100.0,
+                    });
+                }
             }
         }
 
@@ -687,8 +801,8 @@ pub fn get_telemetry_data() -> Result<TelemetryData, String> {
                     lblinker: raw.light_lblinker == 1 || raw.lblinker == 1,
                     rblinker: raw.light_rblinker == 1 || raw.rblinker == 1,
                     hazard: raw.hazard_warning == 1,
-                    aux_front: raw.light_aux_front,
-                    aux_roof: raw.light_aux_roof,
+                    aux_front: raw.light_aux_front as u32,
+                    aux_roof: raw.light_aux_roof as u32,
                 },
                 inputs: InputInfo {
                     steering: raw.input_steering * 100.0,
@@ -717,26 +831,182 @@ pub fn get_telemetry_data() -> Result<TelemetryData, String> {
             },
             trailer: trailers,
             job: if raw.job_active == 1 || raw.job_event != 0 {
+                let raw_cargo_name = read_cstr(&raw.job_cargo_name);
+                let raw_cargo_id = read_cstr(&raw.job_cargo_id);
+                let is_bus = raw.bus_job_active == 1 || raw_cargo_name == "Passengers" || raw_cargo_id == "passengers";
+                let cargo_name = if is_bus { "Passengers".to_string() } else { raw_cargo_name };
+                let cargo_id = if is_bus && raw_cargo_id.is_empty() { "passengers".to_string() } else { raw_cargo_id };
+
+                let cargo_mass = if is_bus {
+                    let pax = if raw.bus.valid == 1 && raw.bus.source_entering_passengers_planned > 0 {
+                        raw.bus.source_entering_passengers_planned
+                    } else if raw.passengers_entering_planned > 0 {
+                        raw.passengers_entering_planned
+                    } else {
+                        0
+                    };
+                    if pax > 0 {
+                        pax.saturating_mul(75) as f32
+                    } else {
+                        raw.job_cargo_mass
+                    }
+                } else {
+                    raw.job_cargo_mass
+                };
+
+                let planned_distance = if raw.job_planned_distance_km > 0.0 {
+                    raw.job_planned_distance_km
+                } else if is_bus && raw.navigation_distance > 0.0 {
+                    raw.navigation_distance / 1000.0
+                } else {
+                    0.0
+                };
+
+                let job_market_str = read_cstr(&raw.job_market);
+                let market = if !job_market_str.is_empty() {
+                    job_market_str
+                } else if is_bus {
+                    let bm = read_cstr(&raw.bus_job_market);
+                    if !bm.is_empty() { bm } else { "coach".to_string() }
+                } else {
+                    "".to_string()
+                };
+
+                // As requested: Use the exact same income and revenue channels for both coaches and trucks
+                let income = if raw.job_income > 0 {
+                    raw.job_income as u64
+                } else {
+                    raw.job_revenue
+                };
+                let revenue = raw.job_revenue;
+
+                let cargo_event = if raw.job_active == 1 {
+                    0
+                } else if is_bus {
+                    raw.bus_job_event
+                } else {
+                    raw.job_event
+                };
+
                 Some(JobInfo {
                     active: raw.job_active == 1,
-                    cargo: read_cstr(&raw.job_cargo_name),
-                    cargo_id: read_cstr(&raw.job_cargo_id),
+                    cargo: cargo_name,
+                    cargo_id,
                     source: read_cstr(&raw.job_source_city),
                     destination: read_cstr(&raw.job_destination_city),
                     distance_km: raw.job_distance_driven_km, // Map precision distance
-                    income: raw.job_income as u64,
-                    cargo_damage: raw.job_cargo_damage_initial * 100.0,
-                    cargo_damage_live: raw.job_cargo_damage * 100.0,
-                    cargo_mass: raw.job_cargo_mass,
-                    cargo_event: raw.job_event,
-                    cargo_accessory_id: read_cstr(&raw.cargo_accessory_id),
-                    planned_distance: raw.job_planned_distance_km,
-                    market: read_cstr(&raw.job_market),
-                    is_special: raw.job_is_special == 1,
+                    income,
+                    cargo_damage: if is_bus { 0.0 } else { raw.job_cargo_damage_initial * 100.0 },
+                    cargo_damage_live: if is_bus { 0.0 } else { raw.job_cargo_damage * 100.0 },
+                    cargo_mass,
+                    cargo_event,
+                    cargo_accessory_id: if is_bus { "".into() } else { read_cstr(&raw.cargo_accessory_id) },
+                    planned_distance,
+                    market,
+                    is_special: if is_bus { false } else { raw.job_is_special == 1 },
+                    revenue,
+                    xp: raw.job_xp,
+                    auto_park: if is_bus { false } else { raw.job_auto_park_used == 1 },
+                    auto_load: if is_bus { false } else { raw.job_auto_load_used == 1 },
+                })
+            } else if raw.bus.valid == 1 && (raw.bus.stages_count > 0 || raw.bus.source_entering_passengers_planned > 0 || raw.bus.source_stop.name[0] != 0) {
+                Some(JobInfo {
+                    active: true,
+                    cargo: "Passengers".into(),
+                    cargo_id: "passengers".into(),
+                    source: read_cstr(&raw.bus.source_stop.name),
+                    destination: read_cstr(&raw.bus.destination_stop.name),
+                    distance_km: raw.job_distance_driven_km,
+                    income: if raw.job_income > 0 { raw.job_income as u64 } else { raw.job_revenue },
+                    cargo_damage: 0.0,
+                    cargo_damage_live: 0.0,
+                    cargo_mass: (raw.bus.source_entering_passengers_planned.saturating_mul(75)) as f32,
+                    cargo_event: if raw.bus_job_active == 1 { 0 } else { raw.bus_job_event },
+                    cargo_accessory_id: "".into(),
+                    planned_distance: if raw.job_planned_distance_km > 0.0 { raw.job_planned_distance_km } else { raw.navigation_distance / 1000.0 },
+                    market: {
+                        let m = read_cstr(&raw.bus.job_market);
+                        if !m.is_empty() { m } else { "coach".into() }
+                    },
+                    is_special: false,
                     revenue: raw.job_revenue,
                     xp: raw.job_xp,
-                    auto_park: raw.job_auto_park_used == 1,
-                    auto_load: raw.job_auto_load_used == 1,
+                    auto_park: false,
+                    auto_load: false,
+                })
+            } else if raw.bus_job_active == 1 {
+                Some(JobInfo {
+                    active: true,
+                    cargo: "Passengers".into(),
+                    cargo_id: "passengers".into(),
+                    source: read_cstr(&raw.source_stop_name),
+                    destination: read_cstr(&raw.dest_stop_name),
+                    distance_km: raw.job_distance_driven_km,
+                    income: if raw.job_income > 0 { raw.job_income as u64 } else { raw.job_revenue },
+                    cargo_damage: 0.0,
+                    cargo_damage_live: 0.0,
+                    cargo_mass: (raw.passengers_entering_planned.saturating_mul(75)) as f32,
+                    cargo_event: if raw.bus_job_active == 1 { 0 } else { raw.bus_job_event },
+                    cargo_accessory_id: "".into(),
+                    planned_distance: if raw.job_planned_distance_km > 0.0 { raw.job_planned_distance_km } else { raw.navigation_distance / 1000.0 },
+                    market: {
+                        let m = read_cstr(&raw.bus_job_market);
+                        if !m.is_empty() { m } else { "coach".into() }
+                    },
+                    is_special: false,
+                    revenue: raw.job_revenue,
+                    xp: raw.job_xp,
+                    auto_park: false,
+                    auto_load: false,
+                })
+            } else {
+                None
+            },
+            bus_job: if raw.bus.valid == 1 {
+                Some(BusJobInfo {
+                    active: raw.bus.stages_count > 0 || raw.bus.source_entering_passengers_planned > 0 || raw.bus.source_stop.name[0] != 0,
+                    valid: true,
+                    event: raw.bus_job_event,
+                    finished_count: raw.bus_jobs_finished_count,
+                    market: read_cstr(&raw.bus.job_market),
+                    stages_count: raw.bus.stages_count,
+                    stages_current: raw.bus.stages_current,
+                    source_stop_type: read_cstr(&raw.bus.source_stop.stop_type),
+                    source_stop_id: read_cstr(&raw.bus.source_stop.id),
+                    source_stop_name: read_cstr(&raw.bus.source_stop.name),
+                    destination_stop_type: read_cstr(&raw.bus.destination_stop.stop_type),
+                    destination_stop_id: read_cstr(&raw.bus.destination_stop.id),
+                    destination_stop_name: read_cstr(&raw.bus.destination_stop.name),
+                    source_departure_time_planned: raw.bus.source_departure_planned,
+                    source_departure_time_actual: raw.bus.source_departure_actual,
+                    destination_arrival_time_planned: raw.bus.destination_arrival_planned,
+                    destination_arrival_time_actual: raw.bus.destination_arrival_actual,
+                    passengers_entering_planned: raw.bus.source_entering_passengers_planned,
+                    passengers_leaving_planned: raw.bus.destination_leaving_passengers_planned,
+                    passenger_satisfaction: if raw.bus.passenger_satisfaction > 0.0 { raw.bus.passenger_satisfaction } else { raw.passenger_satisfaction },
+                })
+            } else if raw.bus_job_active == 1 || raw.bus_job_event != 0 || raw.passengers_entering_planned > 0 || raw.source_stop_name[0] != 0 {
+                Some(BusJobInfo {
+                    active: raw.bus_job_active == 1,
+                    valid: false,
+                    event: raw.bus_job_event,
+                    finished_count: raw.bus_jobs_finished_count,
+                    market: read_cstr(&raw.bus_job_market),
+                    stages_count: raw.bus_stages_count,
+                    stages_current: raw.bus_stages_current,
+                    source_stop_type: read_cstr(&raw.source_stop_type),
+                    source_stop_id: read_cstr(&raw.source_stop_id),
+                    source_stop_name: read_cstr(&raw.source_stop_name),
+                    destination_stop_type: read_cstr(&raw.dest_stop_type),
+                    destination_stop_id: read_cstr(&raw.dest_stop_id),
+                    destination_stop_name: read_cstr(&raw.dest_stop_name),
+                    source_departure_time_planned: raw.source_departure_time_planned,
+                    source_departure_time_actual: raw.source_departure_time_actual,
+                    destination_arrival_time_planned: raw.dest_arrival_time_planned,
+                    destination_arrival_time_actual: raw.dest_arrival_time_actual,
+                    passengers_entering_planned: raw.passengers_entering_planned,
+                    passengers_leaving_planned: raw.passengers_leaving_planned,
+                    passenger_satisfaction: if raw.passenger_satisfaction > 0.0 { raw.passenger_satisfaction } else { raw.bus.passenger_satisfaction },
                 })
             } else {
                 None
@@ -747,6 +1017,8 @@ pub fn get_telemetry_data() -> Result<TelemetryData, String> {
                 last_ferry_target_id: read_cstr(&raw.last_ferry_target_id),
                 last_train_source_id: read_cstr(&raw.last_train_source_id),
                 last_train_target_id: read_cstr(&raw.last_train_target_id),
+                ferry_amount: raw.last_ferry_amount,
+                train_amount: raw.last_train_amount,
                 fine_amount: raw.event_fine_amount,
                 toll_amount: raw.event_toll_amount,
                 fuel_amount: raw.event_fuel_amount,
@@ -755,7 +1027,7 @@ pub fn get_telemetry_data() -> Result<TelemetryData, String> {
                 toll_count: raw.event_toll_count,
                 fuel_count: raw.event_fuel_count,
                 repair_count: raw.event_repair_count,
-                job_event: raw.job_event,
+                job_event: if raw.job_active == 1 { 0 } else { raw.job_event },
             },
         })
     }

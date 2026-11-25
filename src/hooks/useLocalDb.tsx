@@ -1,4 +1,4 @@
-import { useCallback, useState, useRef } from 'react';
+import { useCallback, useState, useRef, useEffect } from 'react';
 import Database from '@tauri-apps/plugin-sql';
 import { supabase } from '@/integrations/supabase/client';
 import { trackEvent } from "@/lib/aptabase";
@@ -15,6 +15,15 @@ let dbInstance: Database | null = null;
 
 export function useLocalDb() {
   const [isSyncing, setIsSyncing] = useState(false);
+  const [pendingCount, setPendingCount] = useState<number>(0);
+  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(() => {
+    try {
+      const saved = localStorage.getItem('titan_last_synced_at');
+      return saved ? new Date(saved) : new Date();
+    } catch {
+      return new Date();
+    }
+  });
 
   const initDb = async () => {
     if (dbInstance) return dbInstance;
@@ -36,6 +45,27 @@ export function useLocalDb() {
     }
   };
 
+  const checkPendingCount = useCallback(async () => {
+    try {
+      const db = await initDb();
+      if (!db) return 0;
+      const rows = await db.select<{ count: number }[]>(
+        'SELECT count(*) as count FROM job_logs_queue WHERE synced = 0'
+      );
+      const count = rows && rows.length > 0 ? Number(rows[0].count) || 0 : 0;
+      setPendingCount(count);
+      return count;
+    } catch {
+      return 0;
+    }
+  }, []);
+
+  useEffect(() => {
+    checkPendingCount();
+    const interval = setInterval(checkPendingCount, 5000);
+    return () => clearInterval(interval);
+  }, [checkPendingCount]);
+
   const saveJobLocally = useCallback(async (jobData: Record<string, any>) => {
     const db = await initDb();
     if (!db) return false;
@@ -52,12 +82,13 @@ export function useLocalDb() {
       );
 
       console.log(`[Offline Sync] Job ${jobId} saved securely to local DB.`);
+      checkPendingCount();
       return true;
     } catch (e) {
       console.error('Titan Omega: Failed to save job locally:', e);
       return false;
     }
-  }, []);
+  }, [checkPendingCount]);
 
   const isSyncingRef = useRef(false);
 
@@ -79,6 +110,10 @@ export function useLocalDb() {
 
       if (pendingJobs.length === 0) {
         setIsSyncing(false);
+        const now = new Date();
+        setLastSyncedAt(now);
+        try { localStorage.setItem('titan_last_synced_at', now.toISOString()); } catch {}
+        setPendingCount(0);
         return; // Nothing to sync
       }
 
@@ -153,17 +188,25 @@ export function useLocalDb() {
           trackEvent('job_sync_failed', { reason: String(jobErr) });
         }
       }
+
+      const now = new Date();
+      setLastSyncedAt(now);
+      try { localStorage.setItem('titan_last_synced_at', now.toISOString()); } catch {}
+      await checkPendingCount();
     } catch (e) {
       console.error('Titan Omega: Batch sync failed:', e);
     } finally {
       isSyncingRef.current = false;
       setIsSyncing(false);
     }
-  }, []);
+  }, [checkPendingCount]);
 
   return {
     saveJobLocally,
     syncJobsToSupabase,
-    isSyncing
+    isSyncing,
+    pendingCount,
+    lastSyncedAt,
+    checkPendingCount
   };
 }

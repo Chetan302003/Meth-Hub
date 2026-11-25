@@ -70,6 +70,17 @@ fn install_telemetry_plugin(app: AppHandle, custom_path: Option<String>) -> Resu
 
     let final_dest = ets2_target.join("myhub_telemetry.dll");
 
+    // Copy INI if present and target doesn't exist yet
+    let ini_resource = resource_path.parent().map(|p| p.join("bus_offsets.ini"));
+    if let Some(ini_src) = ini_resource {
+        if ini_src.exists() {
+            let ini_dest = ets2_target.join("bus_offsets.ini");
+            if !ini_dest.exists() {
+                let _ = std::fs::copy(&ini_src, &ini_dest);
+            }
+        }
+    }
+
     // Copy the file
     match std::fs::copy(&resource_path, &final_dest) {
         Ok(_) => Ok("Telemetry SDK successfully installed to ETS2!".to_string()),

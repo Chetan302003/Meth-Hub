@@ -15,6 +15,7 @@ export interface AuraPlacement {
 }
 
 export interface TelemetryData {
+  busJob?: any;
   game: {
     connected: boolean;
     paused: boolean;
@@ -96,6 +97,8 @@ export interface TelemetryData {
     damage: number;
   }>;
   job: {
+    cargoDamageLive: any;
+    cargoDamage: any;
     active: boolean;
     cargo: string;
     cargoId: string;
@@ -153,6 +156,7 @@ const defaultTelemetry: TelemetryData = {
   job: null,
   events: { delivered: 0, cancelled: 0, fined: 0, fineAmount: 0, toll: 0, tollAmount: 0, jobEvent: 0, ferryAmount: 0, trainAmount: 0, fuelAmount: 0, repairAmount: 0 },
   timestamp: 0,
+  busJob: undefined
 };
 
 export function useTelemetry() {
@@ -186,7 +190,7 @@ export function useTelemetry() {
             fuel: rawObj.truck.fuel,
             fuelCapacity: rawObj.truck.fuelCapacity || 0,
             fuelRange: rawObj.truck.fuelRange ?? rawObj.truck.dash?.fuelRange ?? 0,
-            fuelWarning: rawObj.truck.fuel < (rawObj.truck.fuelCapacity * 0.15),
+            fuelWarning: rawObj.truck.dash?.fuelWarning ?? rawObj.truck.fuelWarning ?? (rawObj.truck.fuel < (rawObj.truck.fuelCapacity * 0.15)),
             adblue: rawObj.truck.dash?.adblue ?? 0,
             adblueWarning: rawObj.truck.dash?.adblueWarning ?? rawObj.truck.dash?.adblue_warning ?? false,
             waterTemp: rawObj.truck.waterTemp ?? rawObj.truck.dash?.waterTemperature ?? rawObj.truck.dash?.waterTemp ?? 0,
@@ -211,7 +215,7 @@ export function useTelemetry() {
             throttle: rawObj.truck.inputs?.throttle || 0,
             brake: rawObj.truck.inputs?.brake || 0,
             clutch: rawObj.truck.inputs?.clutch || 0,
-            effectiveSteering: rawObj.truck.inputs?.steering || 0,
+            effectiveSteering: rawObj.truck.inputs?.effectiveSteering ?? rawObj.truck.inputs?.steering ?? 0,
             cruiseControl: rawObj.truck.cruiseControl,
           },
           damage: {
@@ -261,7 +265,9 @@ export function useTelemetry() {
           distanceKm: rawObj.job.distanceKm ?? rawObj.job.distance_km ?? 0,
           income: rawObj.job.income,
           plannedDistance: rawObj.job.plannedDistance ?? rawObj.job.planned_distance ?? 0,
-          progress: rawObj.job.cargoDamageLive ?? rawObj.job.cargo_damage ?? rawObj.job.liveDamage ?? 0,
+          progress: rawObj.job.cargoDamageLive ?? rawObj.job.cargoDamage ?? rawObj.job.cargo_damage ?? rawObj.job.liveDamage ?? 0,
+          cargoDamage: rawObj.job.cargoDamage ?? rawObj.job.cargo_damage ?? 0,
+          cargoDamageLive: rawObj.job.cargoDamageLive ?? rawObj.job.cargo_damage_live ?? rawObj.job.liveDamage ?? 0,
           cargoMass: rawObj.job.cargoMass || 0,
           cargoEvent: rawObj.job.cargoEvent || 0,
           cargoAccessoryId: rawObj.job.cargoAccessoryId || "",
@@ -287,6 +293,7 @@ export function useTelemetry() {
           repairAmount: rawObj.events?.repairAmount ?? rawObj.events?.repairCost ?? 0,
         },
         timestamp: rawObj.timestamp,
+        busJob: rawObj.busJob ?? rawObj.bus_job ?? null,
       };
     } catch (err) {
       console.error('Titan Omega Hook Parser Error:', err);
@@ -365,6 +372,7 @@ export function useAutoJobLogger() {
   const { data, connected, isJobActive } = useTelemetry();
   const [pendingJob, setPendingJob] = useState<TelemetryData['job'] | null>(null);
   const [startOdometer, setStartOdometer] = useState<number | null>(null);
+  const [drivenDistance, setDrivenDistance] = useState<number>(0);
   const [startFuel, setStartFuel] = useState<number | null>(null); // Kept for reference
   const [accumulatedFuel, setAccumulatedFuel] = useState<number>(0);
   const prevFuelTrackRef = useRef<number | null>(null);
@@ -380,7 +388,7 @@ export function useAutoJobLogger() {
   const [startEvents, setStartEvents] = useState<{ delivered: number; cancelled: number } | null>(null);
   const [jobStartedAt, setJobStartedAt] = useState<string | null>(null);
   const [finalStatusOverride, setFinalStatusOverride] = useState<'delivered' | 'cancelled' | null>(null);
-  const lastDiscordCargoId = useRef<string | null>(null);
+  const lastDiscordJobId = useRef<string | null>(null);
   const latestJobRef = useRef<TelemetryData['job'] | null>(null);
   const wasDisconnectedRef = useRef(false);
   const reconnectCountRef = useRef(0);
@@ -430,13 +438,18 @@ export function useAutoJobLogger() {
         } else if (data.job.cargoId && pendingJob.cargoId) {
           isNewCargo = pendingJob.cargoId !== data.job.cargoId;
         }
+        if (data.job.cargo && pendingJob.cargo && data.job.cargo !== pendingJob.cargo) {
+          isNewCargo = true;
+        }
         // If one is missing details, don't assume it's a "new" cargo yet to prevent double-logging
       } else if (!pendingJob && data.job) {
         isNewCargo = true;
       }
 
-      const isNewTruck = (data.truck.brand && data.truck.brand !== prevTruckBrandRef.current) ||
-        (data.truck.name && data.truck.name !== prevTruckNameRef.current);
+      const brandChanged = prevTruckBrandRef.current !== '' && data.truck.brand !== prevTruckBrandRef.current;
+      const nameChanged = prevTruckNameRef.current !== '' && data.truck.name !== prevTruckNameRef.current;
+      const odomJumped = prevOdometerRef.current !== null && Math.abs(data.truck.dash.odometer - prevOdometerRef.current) > 50;
+      const isNewTruck = brandChanged || nameChanged || odomJumped;
 
       if (!startOdometer || isNewCargo || isNewTruck) {
         // Force-close previous job's logging window if still active (back-to-back jobs)
@@ -457,6 +470,7 @@ export function useAutoJobLogger() {
         liveOdometerRef.current = data.truck.dash.odometer;
         startOdometerRef.current = data.truck.dash.odometer;
         actualDrivenDistanceRef.current = 0;
+        setDrivenDistance(0);
         movingFuelTrackRef.current = 0;
 
         const newJobId = crypto.randomUUID();
@@ -509,8 +523,8 @@ export function useAutoJobLogger() {
         }
 
         // Delay webhook until GPS actually establishes the route to prevent "0 km (Planned)"
-        if (currentPlanned > 0 && jobIdRef.current && user?.user_metadata?.username && lastDiscordCargoId.current !== data.job.cargoId) {
-          lastDiscordCargoId.current = data.job.cargoId;
+        if (currentPlanned > 0 && jobIdRef.current && user?.user_metadata?.username && lastDiscordJobId.current !== jobIdRef.current) {
+          lastDiscordJobId.current = jobIdRef.current;
           const avatarUrl = user.user_metadata.avatar_url || "https://i.ibb.co/wNRBF3zj/logo-png.png";
 
           trackEvent('job_started', {
@@ -526,7 +540,7 @@ export function useAutoJobLogger() {
             origin_city: data.job.source,
             destination_city: data.job.destination,
             planned_distance_km: currentPlanned,
-            cargo_weight: Math.round(data.job.cargoMass / 1000),
+            cargo_weight: Number((data.job.cargoMass / 1000).toFixed(2)),
             cargo_type: data.job.cargo,
             truck_name: `${data.truck.brand} ${data.truck.name}`,
             started_at: jobStartedAt || new Date().toISOString()
@@ -562,6 +576,7 @@ export function useAutoJobLogger() {
           const odometerDelta = data.truck.dash.odometer - prevOdometerRef.current;
           if (odometerDelta > 0 && odometerDelta < 50) {
             actualDrivenDistanceRef.current += odometerDelta;
+            setDrivenDistance(actualDrivenDistanceRef.current);
           } else if (Math.abs(odometerDelta) >= 50) {
             teleportDetectedRef.current = true;
             console.log('Titan Omega: Teleport detected. Odometer jump:', odometerDelta, 'km');
@@ -570,15 +585,17 @@ export function useAutoJobLogger() {
         prevOdometerRef.current = data.truck.dash.odometer;
         liveOdometerRef.current = data.truck.dash.odometer;
       }
+    } else if (!isJobActive) {
+      prevOdometerRef.current = data.truck.dash.odometer;
     }
 
     // END: Job finished — detect by two reliable signals plus direct event mapping:
     // 1. DELIVERED: jobFinishedCount increments OR jobEvent === 1
     // 2. CANCELLED: jobEvent === 2 OR The tracked job disappears
     if (pendingJob && startEvents && !isLogging) {
-      const deliveredInc = (data.events.delivered || 0) > startEvents.delivered;
-      const isEventDelivered = data.events.jobEvent === 1;
-      const isEventCancelled = data.events.jobEvent === 2;
+      const deliveredInc = (data.events.delivered || 0) > startEvents.delivered && data.events.jobEvent !== 2;
+      const isEventDelivered = data.events.jobEvent === 1 && !isJobActive;
+      const isEventCancelled = data.events.jobEvent === 2 && !isJobActive;
 
       const isDelivery = deliveredInc || isEventDelivered;
 
@@ -614,6 +631,7 @@ export function useAutoJobLogger() {
           startOdometerRef.current = null;
           ferryDistanceRef.current = 0;
           actualDrivenDistanceRef.current = 0;
+          setDrivenDistance(0);
           usedFerryOrTrainRef.current = false;
           teleportDetectedRef.current = false;
         }, 5000);
@@ -662,6 +680,7 @@ export function useAutoJobLogger() {
           startOdometerRef.current = null;
           ferryDistanceRef.current = 0;
           actualDrivenDistanceRef.current = 0;
+          setDrivenDistance(0);
           usedFerryOrTrainRef.current = false;
           teleportDetectedRef.current = false;
         }, 5000);
@@ -724,7 +743,17 @@ export function useAutoJobLogger() {
       plannedKm = pendingJob.plannedDistance;
     }
 
-    const damagePercent = data.job?.progress || job.progress || 0;
+    const isPassengerJob = job.cargo === 'Passengers' || (data.busJob && data.busJob.active);
+    let damagePercent = data.job?.cargoDamageLive || data.job?.cargoDamage || 0;
+    if (isPassengerJob) {
+      const sat = data.busJob?.passengerSatisfaction ?? (data.job as any)?.passengerSatisfaction;
+      if (sat !== undefined && sat > 0) {
+        const satPct = sat <= 1.0 ? sat * 100 : sat;
+        damagePercent = Math.max(0, 100 - satPct);
+      } else {
+        damagePercent = 0;
+      }
+    }
     const durationSeconds = jobStartedAt ? Math.round((Date.now() - new Date(jobStartedAt).getTime()) / 1000) : 0;
 
     // Cancelled jobs: zero out all financial/performance stats
@@ -736,7 +765,7 @@ export function useAutoJobLogger() {
         planned_distance_km: Math.round(plannedKm),
         distance_km: 0,
         cargo_type: job.cargo,
-        cargo_weight: Math.round(job.cargoMass / 1000),
+        cargo_weight: Number((job.cargoMass / 1000).toFixed(2)),
         fuel_consumed: 0,
         avg_fuel_consumption: 0,
         income: 0,
@@ -751,7 +780,7 @@ export function useAutoJobLogger() {
         damage_percent: 0,
         truck_name: `${data.truck.brand} ${data.truck.name}`,
         truck_id: data.truck.brand,
-        trailer_id: (data.trailer[0]?.id && data.trailer[0].id !== 'none') ? data.trailer[0].id : (pendingJob?.cargoAccessoryId || job.cargoAccessoryId || 'none'),
+        trailer_id: isPassengerJob ? 'none' : ((data.trailer[0]?.id && data.trailer[0].id !== 'none') ? data.trailer[0].id : (pendingJob?.cargoAccessoryId || job.cargoAccessoryId || 'none')),
         status: 'cancelled',
         auto_park: job.autoPark || false,
         auto_load: job.autoLoad || false,
@@ -795,7 +824,7 @@ export function useAutoJobLogger() {
       planned_distance_km: Math.round(plannedKm),
       distance_km: driven > 0 ? Math.round(driven) : 0,
       cargo_type: job.cargo,
-      cargo_weight: Math.floor(job.cargoMass / 1000),
+      cargo_weight: Number((job.cargoMass / 1000).toFixed(2)),
       fuel_consumed: Math.round(fuelConsumed),
       avg_fuel_consumption: Number(fuelEconomy.toFixed(2)),
       income: Math.round(job.income),
@@ -810,7 +839,7 @@ export function useAutoJobLogger() {
       damage_percent: Math.floor(damagePercent * 10) / 10,
       truck_name: `${data.truck.brand || prevTruckBrandRef.current} ${data.truck.name || prevTruckNameRef.current}`.trim(),
       truck_id: data.truck.brand || prevTruckBrandRef.current || 'unknown',
-      trailer_id: (data.trailer[0]?.id && data.trailer[0].id !== 'none') ? data.trailer[0].id : (pendingJob?.cargoAccessoryId || job.cargoAccessoryId || 'none'),
+      trailer_id: isPassengerJob ? 'none' : ((data.trailer[0]?.id && data.trailer[0].id !== 'none') ? data.trailer[0].id : (pendingJob?.cargoAccessoryId || job.cargoAccessoryId || 'none')),
       status: finalStatus,
       auto_park: job.autoPark || false,
       auto_load: job.autoLoad || false,
@@ -834,6 +863,7 @@ export function useAutoJobLogger() {
     prepareJobData,
     isLogging,
     startOdometer,
+    drivenDistance,
     stickyPlannedDistance,
     usedFerryOrTrain: usedFerryOrTrainRef.current,
     teleportDetected: teleportDetectedRef.current,

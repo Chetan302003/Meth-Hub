@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { GlassCard } from '@/components/layout/GlassCard';
 import { TelemetryPanel } from '@/components/telemetry/TelemetryPanel';
@@ -16,11 +16,15 @@ import {
   Package,
   ArrowRight,
   CheckCircle,
+  CheckCircle2,
   Zap,
   AlertTriangle,
   MapPin,
   DollarSign,
-  Wrench
+  Wrench,
+  Cloud,
+  Clock,
+  RefreshCw
 } from 'lucide-react';
 
 export default function Telemetry() {
@@ -30,12 +34,37 @@ export default function Telemetry() {
   
   const { telemetry, logger } = useGlobalTelemetry();
   const { data, connected, isJobActive, raw } = telemetry;
-  const { prepareJobData, currentJob, isLogging, startOdometer, stickyPlannedDistance } = logger;
+  const { prepareJobData, currentJob, isLogging, startOdometer, drivenDistance, stickyPlannedDistance } = logger;
   
-  const { saveJobLocally, syncJobsToSupabase } = useLocalDb();
+  const { saveJobLocally, syncJobsToSupabase, isSyncing, pendingCount, lastSyncedAt } = useLocalDb();
   const [saving, setSaving] = useState(false);
   const lastSyncedJobId = useRef<string | null>(null);
   const lastWebhookSentId = useRef<string | null>(null);
+
+  // Time tracker for relative "Just now" display
+  const [nowTick, setNowTick] = useState(Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNowTick(Date.now()), 15000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const lastSyncedText = useMemo(() => {
+    if (!lastSyncedAt) return 'Just now';
+    const diffSec = Math.floor((nowTick - lastSyncedAt.getTime()) / 1000);
+    if (diffSec < 60) return 'Just now';
+    if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`;
+    if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`;
+    return lastSyncedAt.toLocaleDateString();
+  }, [lastSyncedAt, nowTick]);
+
+  const handleManualSync = useCallback(async () => {
+    try {
+      await syncJobsToSupabase();
+      toast.success('Sync complete. All jobs are up to date.');
+    } catch {
+      toast.error('Sync failed. Please check network connection.');
+    }
+  }, [syncJobsToSupabase]);
 
   const handleAutoLogJob = useCallback(async () => {
     if (!user || !isApproved) {
@@ -158,7 +187,7 @@ export default function Telemetry() {
     } finally {
       setSaving(false);
     }
-  }, [user, isApproved, prepareJobData]);
+  }, [user, isApproved, prepareJobData, data, connected, startOdometer, stickyPlannedDistance, saveJobLocally, syncJobsToSupabase]);
 
   return (
     <>
@@ -186,6 +215,7 @@ export default function Telemetry() {
           </div>
 
           <div className="space-y-4">
+            {/* VTC Auto-Logger Card */}
             <GlassCard className="relative overflow-hidden">
               {isJobActive && <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 animate-pulse" />}
               <div className="flex items-center gap-3 mb-4 relative z-10">
@@ -212,7 +242,7 @@ export default function Telemetry() {
                     <div className="grid grid-cols-3 gap-2 text-[10px] uppercase font-bold text-muted-foreground">
                       <div className="flex items-center gap-1"><Package size={10} /><span className="truncate">{currentJob?.cargo}</span></div>
                       <div className="flex items-center gap-1"><DollarSign size={10} /><span>${currentJob?.income?.toLocaleString()}</span></div>
-                      <div className="flex items-center gap-1 text-primary"><Zap size={10} /><span>{((data.truck.dash.odometer - (startOdometer || data.truck.dash.odometer)) || 0).toFixed(1)} km</span></div>
+                      <div className="flex items-center gap-1 text-primary"><Zap size={10} /><span>{(drivenDistance || 0).toFixed(1)} km</span></div>
                     </div>
                   </div>
                   <div className="space-y-2">
@@ -225,7 +255,74 @@ export default function Telemetry() {
                 </div>
               )}
             </GlassCard>
-            
+
+            {/* Sync status card below VTC Logger */}
+            <GlassCard className="relative overflow-hidden">
+              <div className="flex items-start justify-between mb-4 relative z-10">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-primary/10 border border-primary/20 text-primary">
+                    <Cloud size={20} />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-base text-foreground">Sync status</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Jobs are saved on this PC until they upload
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-3 relative z-10">
+                {/* Uploads row */}
+                <div className="p-3.5 rounded-xl bg-black/20 border border-white/5 flex items-center justify-between">
+                  <div>
+                    <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Uploads</p>
+                    <p className="text-sm font-bold text-foreground flex items-center gap-1.5 mt-0.5">
+                      {isSyncing ? (
+                        <>
+                          <RefreshCw size={14} className="animate-spin text-primary" />
+                          <span>Uploading...</span>
+                        </>
+                      ) : pendingCount === 0 ? (
+                        <>
+                          <CheckCircle2 size={15} className="text-primary" />
+                          <span>All synced</span>
+                        </>
+                      ) : (
+                        <>
+                          <Clock size={15} className="text-amber-500" />
+                          <span>{pendingCount} waiting to upload</span>
+                        </>
+                      )}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Waiting to upload</p>
+                    <p className="text-sm font-bold text-primary mt-0.5">
+                      {pendingCount} {pendingCount === 1 ? 'job' : 'jobs'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Last synced row */}
+                <div className="p-3.5 rounded-xl bg-black/20 border border-white/5 flex items-center justify-between">
+                  <div>
+                    <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Last synced</p>
+                    <p className="text-sm font-bold text-foreground mt-0.5">{lastSyncedText}</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleManualSync}
+                    disabled={isSyncing}
+                    className="rounded-full gap-1.5 text-xs border-primary/30 hover:bg-primary/10 h-8 px-3"
+                  >
+                    <RefreshCw size={12} className={isSyncing ? "animate-spin text-primary" : "text-primary"} />
+                    {isSyncing ? "Syncing..." : "Sync Now"}
+                  </Button>
+                </div>
+              </div>
+            </GlassCard>
           </div>
         </div>
       </div>
